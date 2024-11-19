@@ -4,12 +4,7 @@ use std::{io, thread};
 use std::time::Duration;
 use local_ip_address::local_ip;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct UploaderInfo {
-    public: bool,
-    name: String,
-    file_size: i32
-}
+use crate::types::UploaderInfo;
 
 pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
     let local_ip = get_local_ip();
