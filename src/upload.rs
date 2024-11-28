@@ -1,7 +1,6 @@
 use std::net::{Ipv4Addr, UdpSocket, SocketAddr};
 use std::str;
 use serde::{Serialize, Deserialize};
-use crate::{UploaderInfo};
 
 pub fn host(uploader_info: UploaderInfo) {
 

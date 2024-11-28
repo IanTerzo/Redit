@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::{io, thread};
 use std::time::Duration;
@@ -6,9 +5,11 @@ use local_ip_address::local_ip;
 
 use crate::types::UploaderInfo;
 
-pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
+const PORT: u16 = 20674;
+
+pub fn scan_network(timeout: u64) -> Vec<UploaderInfo> {
     let local_ip = get_local_ip();
-    let mut subnet = match local_ip {
+    let subnet = match local_ip {
         IpAddr::V4(ipv4) => get_subnet(ipv4),
         IpAddr::V6(_) => {
             println!("IPv6 is not supported");
@@ -16,11 +17,8 @@ pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
         }
     };
 
-    let nils_ip =Ipv4Addr::new(10, 22, 5, 203); 
-    subnet.push(nils_ip);
-
     // Start the host thread
-    let socket = UdpSocket::bind("0.0.0.0:6969").expect("Couldn't bind to address");
+    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
     let socket_clone = socket.try_clone().expect("Failed to clone socket");
     let listener_thread = thread::spawn(move || host(socket_clone, timeout));
 
@@ -30,7 +28,7 @@ pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
             continue;
         }
         println!("Connecting to {:?}", ip);
-        let addr: SocketAddr = SocketAddr::new(ip.into(), port);
+        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
         let message: [u8; 1] = [255];
 
         let _ = socket.send_to(&message, addr);
@@ -103,3 +101,4 @@ fn host(socket: UdpSocket, timeout: u64) -> Vec<UploaderInfo> {
 
     hosts
 }
+

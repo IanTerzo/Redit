@@ -6,3 +6,4 @@ pub struct UploaderInfo {
     pub name: String,
     pub files_size: i32
 }
+
