@@ -1,5 +1,7 @@
 mod scan;
 mod types;
+mod words;
+mod encryption;
 
 use argh::FromArgs;
 

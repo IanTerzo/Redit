@@ -8,7 +8,7 @@
   outputs = { nixpkgs, ... }:
   let
     system = "x86_64-linux";
-    buildInputs = [];
+    buildInputs = [ pkgs.openssl ];
     redit = (pkgs.rustPlatform.buildRustPackage {
       name = "redit";
       src = ./.;
@@ -35,6 +35,7 @@
       buildInputs = buildInputs ++ (with pkgs; [
         cargo
         rustc
+        pkg-config
       ]);
     };
     packages.x86_64-linux.default = redit;
