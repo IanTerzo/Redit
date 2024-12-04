@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::{io, thread};
 use std::time::Duration;
-use local_ip_address::local_ip;
 
 use crate::types::UploaderInfo;
+use crate::utils::get_local_ip;
 
 pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
     let local_ip = get_local_ip();
@@ -42,19 +41,6 @@ pub fn scan_network(port: u16, timeout: u64) -> Vec<UploaderInfo> {
         .expect("Failed to join listener thread");
 
     hosts
-}
-
-fn get_local_ip() -> IpAddr {
-    match local_ip() {
-        Ok(ip) => {
-            return ip;
-        }
-        Err(e) => {
-            println!("Failed to get local IP address: {}", e);
-            // Return a default IP address in case of error
-            return IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
-        }
-    }
 }
 
 fn get_subnet(local_ip: Ipv4Addr) -> Vec<Ipv4Addr> {
