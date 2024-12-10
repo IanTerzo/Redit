@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
-use std::net::Ipv4Addr;
+use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UploaderInfo {
@@ -23,9 +23,9 @@ pub struct Payload {
     pub data: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientConnectionInfo {
-    pub password: Option<String>,
-    pub client_ip_address: Ipv4Addr,
+    pub password: String,
 }
 
 pub struct ServerConnectionInfo {

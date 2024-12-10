@@ -1,13 +1,13 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::{io, thread};
 use std::time::Duration;
+use std::{io, thread};
 
 use crate::types::UploaderInfo;
 use crate::utils::get_local_ip;
 
 const PORT: u16 = 20674;
 
-pub fn scan_network(timeout: u64) -> Vec<UploaderInfo> {
+pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let local_ip = get_local_ip();
     let subnet = match local_ip {
         IpAddr::V4(ipv4) => get_subnet(ipv4),
@@ -27,11 +27,10 @@ pub fn scan_network(timeout: u64) -> Vec<UploaderInfo> {
         if ip == local_ip {
             continue;
         }
-        println!("Connecting to {:?}", ip);
+        //println!("Connecting to {:?}", ip);
         let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-        let message: [u8; 1] = [255];
 
-        let _ = socket.send_to(&message, addr);
+        let _ = socket.send_to(b"c", addr);
     }
 
     // Wait for the host thread to finish and collect the results
@@ -51,7 +50,7 @@ fn get_subnet(local_ip: Ipv4Addr) -> Vec<Ipv4Addr> {
     subnet
 }
 
-fn host(socket: UdpSocket, timeout: u64) -> Vec<UploaderInfo> {
+fn host(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let mut buf = [0; 1024];
     let mut hosts = Vec::new();
 
@@ -61,19 +60,15 @@ fn host(socket: UdpSocket, timeout: u64) -> Vec<UploaderInfo> {
         .expect("Failed to set read timeout");
 
     loop {
-
         match socket.recv_from(&mut buf) {
-            Ok((_amt, _src)) => {
-
-                match bincode::deserialize::<UploaderInfo>(&buf) {
-                    Ok(res) => {
-                        hosts.push(res);
-                    }
-                    Err(e) => {
-                        println!("Failed to deserialize packet: {}", e);
-                    }
+            Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
+                Ok(res) => {
+                    hosts.push((res, src.ip()));
                 }
-            }
+                Err(e) => {
+                    println!("Failed to deserialize packet: {}", e);
+                }
+            },
             Err(ref e)
                 if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
             {
@@ -88,4 +83,3 @@ fn host(socket: UdpSocket, timeout: u64) -> Vec<UploaderInfo> {
 
     hosts
 }
-
