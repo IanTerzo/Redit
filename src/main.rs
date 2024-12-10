@@ -1,10 +1,8 @@
 mod scan;
-
-mod upload;
-use upload::{host};
 mod types;
 mod words;
 mod encryption;
+mod connect;
 
 use argh::FromArgs;
 
@@ -51,9 +49,16 @@ struct HostCommand {
 }
 
 fn main() {
-    println!("Getting hosts...");
-    let hosts = scan::scan_network(6969, 1000);
+    let cli: Cli = argh::from_env();
 
-    println!("Hosts: {:?}", hosts);
+    if let Some(command) = cli.command {
+        match command {
+            Commands::Scan(_command) => {
+                scan::scan_network(60);
+            }
+            Commands::Host(_command) => {
+            }
+        }
+    }
 }
 
