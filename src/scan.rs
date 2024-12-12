@@ -27,10 +27,12 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
         if ip == local_ip {
             continue;
         }
-        //println!("Connecting to {:?}", ip);
-        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
 
-        let _ = socket.send_to(b"c", addr);
+        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+        let request_id: u8 = 1;
+        let request_id = [request_id];
+
+        let _ = socket.send_to(&request_id, addr);
     }
 
     // Wait for the host thread to finish and collect the results

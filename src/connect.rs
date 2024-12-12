@@ -15,18 +15,22 @@ pub fn connect_to_host(
 ) -> Result<ClientConnectionInfo, String> {
     let local_ip = get_local_ip();
 
+    let request_id: u8 = 2;
     let connection_info = ClientConnectionInfo {
         password: encrypted_password,
     };
+    let mut serialized_data = bincode::serialize(&connection_info).unwrap();
+    let mut payload = Vec::with_capacity(1 + serialized_data.len());
+    payload.push(request_id);
+    payload.append(&mut serialized_data);
 
     let socket = UdpSocket::bind("0.0.0.0:6970").map_err(|e| e.to_string())?;
     let addr: SocketAddr = SocketAddr::new(ip_address, 6969);
     let socket_clone = socket.try_clone().map_err(|e| e.to_string())?;
     let listener_thread = thread::spawn(move || wait_for_host(socket_clone, 1000, addr));
 
-    let connection_info_bytes = bincode::serialize(&connection_info).map_err(|e| e.to_string())?;
     socket
-        .send_to(&connection_info_bytes, addr)
+        .send_to(&payload, addr)
         .map_err(|e| e.to_string())?;
 
     // Wait for the host thread to finish and collect the results

@@ -57,7 +57,7 @@ fn main() {
         match command {
             // Nils fixar detta -
             Commands::Scan(_command) => {
-                let availible_hosts = scan::scan_network(60);
+                let availible_hosts = scan::scan_network(1000);
                 println!("{:#?}", availible_hosts); // Visa upp de fint.
                 println!("Choose a host to connect to 0 - 10: ");
 
