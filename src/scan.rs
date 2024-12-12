@@ -5,7 +5,7 @@ use std::{io, thread};
 use crate::types::UploaderInfo;
 use crate::utils::get_local_ip;
 
-const PORT: u16 = 20674;
+const PORT: u16 = 6969;
 
 pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let local_ip = get_local_ip();
@@ -27,10 +27,12 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
         if ip == local_ip {
             continue;
         }
-        //println!("Connecting to {:?}", ip);
-        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
 
-        let _ = socket.send_to(b"c", addr);
+        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+        let request_id: u8 = 1;
+        let request_id = [request_id];
+
+        let _ = socket.send_to(&request_id, addr);
     }
 
     // Wait for the host thread to finish and collect the results

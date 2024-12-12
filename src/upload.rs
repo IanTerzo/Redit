@@ -20,7 +20,7 @@ pub fn upload_files() {
 }
 pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
-    println!("Listening for incoming packets on 6969");
+    println!("Hosting...");
 
     let mut buf = [0; 1024];
     loop {
@@ -29,29 +29,22 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
         println!("Received packet from: {}", src);
 
         let packet_data = &buf[..amt];
-        println!("{}", str::from_utf8(packet_data).unwrap());
+        let (req_id, data) = packet_data.split_at(1);
+        let req_id: u8 = req_id[0];
 
-        // Check if the host got a message.
-        let message: Option<&str> = match str::from_utf8(packet_data) {
-            Ok(message) => Some(message),
-            Err(_) => None,
-        };
+        println!("{}", req_id);
 
-        if let Some(message) = message {
-            if message == "c" {
-                // respond with the uploader info. (includes the public key)
-                let serialized = bincode::serialize(&uploader_info).unwrap();
-                socket
-                    .send_to(&serialized, src)
-                    .expect("Couldn't send data");
+        if req_id == 1 {
+            // respond with the uploader info. (includes the public key)
+            let serialized = bincode::serialize(&uploader_info).unwrap();
+            socket
+                .send_to(&serialized, src)
+                .expect("Couldn't send data");
 
-                continue;
-            }
-        }
-
-        if !uploader_info.public {
+            continue;
+        } else if req_id == 2 {
             // password sharing, then give encrypted files
-            let res = bincode::deserialize::<ClientConnectionInfo>(&buf[..amt]).unwrap();
+            let res = bincode::deserialize::<ClientConnectionInfo>(data).unwrap();
 
             println!("{:#?}", res.password); // Debug
 
@@ -64,8 +57,10 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
 
                 // give the files encrypted with the password
             }
-        } else {
-            // give the files unecncrypted
+        } else if req_id == 3 {
+            if !uploader_info.public {
+                continue;
+            }
         }
     }
 }
