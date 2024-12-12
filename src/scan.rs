@@ -5,7 +5,7 @@ use std::{io, thread};
 use crate::types::UploaderInfo;
 use crate::utils::get_local_ip;
 
-const PORT: u16 = 20674;
+const PORT: u16 = 6969;
 
 pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let local_ip = get_local_ip();
