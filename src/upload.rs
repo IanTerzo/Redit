@@ -46,17 +46,17 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
             // password sharing, then give encrypted files
             let res = bincode::deserialize::<ClientConnectionInfo>(data).unwrap();
 
-            println!("{:#?}", res.password); // Debug
+            println!("{:#?}", res.encrypted_password); // Debug
 
-            // decrypt res.password
-            if res.password
-                == password
-                    .clone()
-                    .expect("You must provide a password if the files aren't public!")
-            {
+        // decrypt res.password
+        // if res.password
+        //     == password
+        //         .clone()
+        //         .expect("You must provide a password if the files aren't public!")
+        // {
 
-                // give the files encrypted with the password
-            }
+        // give the files encrypted with the password
+        // }
         } else if req_id == 3 {
             if !uploader_info.public {
                 continue;

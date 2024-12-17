@@ -6,9 +6,16 @@ mod upload;
 mod utils;
 mod words;
 use argh::FromArgs;
+use rand::rngs::OsRng;
+use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
+use rsa::pkcs1v15::Pkcs1v15Encrypt;
+use rsa::RsaPublicKey;
 use std::io;
 use types::UploaderInfo;
-
+// move gen_private_key and gen_public_key to encryption
+use upload::{gen_private_key, gen_public_key};
+// This souldn't be done here
+use base64::{decode, encode};
 /// Redit file sharing
 #[derive(FromArgs)]
 struct Cli {
@@ -70,8 +77,25 @@ fn main() {
                 let index: usize = input.trim().parse().unwrap();
                 let selected = availible_hosts[index].clone();
                 if selected.0.public == false {
-                    // password sharing
-                    connect::connect_to_host(selected.1, "pass".to_string());
+                    // TODO: move to encryption module
+                    let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
+                    let decoded_der = decode(host_public_key_string).unwrap(); // Base64 decode
+                    let host_public_key = RsaPublicKey::from_pkcs1_der(&decoded_der).unwrap();
+
+                    let mut password = String::new();
+                    io::stdin()
+                        .read_line(&mut password)
+                        .expect("Failed to read line");
+
+                    let password = password.trim();
+
+                    let mut rng = OsRng;
+
+                    let encrypted_password = host_public_key
+                        .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
+                        .unwrap();
+
+                    connect::connect_to_host(selected.1, encrypted_password);
                 } else {
                     //idk
                 }
@@ -87,12 +111,15 @@ fn main() {
                     .expect("Failed to read line");
 
                 let password = password.trim().to_string();
+                let private = gen_private_key();
+                let public = gen_public_key(private).to_pkcs1_der().unwrap();
+                let public_string = encode(public);
 
                 let info = UploaderInfo {
                     public: false,
                     name: "Ian".to_string(),
                     files_size: 3,
-                    public_key: Some("testpublickey".to_string()),
+                    public_key: Some(public_string),
                 };
 
                 upload::host(info, Some(password))

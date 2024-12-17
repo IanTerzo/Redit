@@ -11,13 +11,13 @@ use std::{
 
 pub fn connect_to_host(
     ip_address: IpAddr,
-    encrypted_password: String,
+    encrypted_password: Vec<u8>,
 ) -> Result<ClientConnectionInfo, String> {
     let local_ip = get_local_ip();
 
     let request_id: u8 = 2;
     let connection_info = ClientConnectionInfo {
-        password: encrypted_password,
+        encrypted_password: encrypted_password,
     };
     let mut serialized_data = bincode::serialize(&connection_info).unwrap();
     let mut payload = Vec::with_capacity(1 + serialized_data.len());
@@ -29,9 +29,7 @@ pub fn connect_to_host(
     let socket_clone = socket.try_clone().map_err(|e| e.to_string())?;
     let listener_thread = thread::spawn(move || wait_for_host(socket_clone, 1000, addr));
 
-    socket
-        .send_to(&payload, addr)
-        .map_err(|e| e.to_string())?;
+    socket.send_to(&payload, addr).map_err(|e| e.to_string())?;
 
     // Wait for the host thread to finish and collect the results
     listener_thread

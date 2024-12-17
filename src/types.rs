@@ -25,7 +25,7 @@ pub struct Payload {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientConnectionInfo {
-    pub password: String,
+    pub encrypted_password: Vec<u8>,
 }
 
 pub struct ServerConnectionInfo {
