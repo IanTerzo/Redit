@@ -62,7 +62,7 @@ fn main() {
 
     if let Some(command) = cli.command {
         match command {
-            // Nils fixar detta -
+            // Nils fixar detta
             Commands::Scan(_command) => {
                 let availible_hosts = scan::scan_network(1000);
                 println!("{:#?}", availible_hosts); // Visa upp de fint.
@@ -82,6 +82,7 @@ fn main() {
                     let decoded_der = decode(host_public_key_string).unwrap(); // Base64 decode
                     let host_public_key = RsaPublicKey::from_pkcs1_der(&decoded_der).unwrap();
 
+                    print("password: ")
                     let mut password = String::new();
                     io::stdin()
                         .read_line(&mut password)
@@ -112,7 +113,7 @@ fn main() {
 
                 let password = password.trim().to_string();
                 let private = gen_private_key();
-                let public = gen_public_key(private).to_pkcs1_der().unwrap();
+                let public = gen_public_key(private.clone()).to_pkcs1_der().unwrap();
                 let public_string = encode(public);
 
                 let info = UploaderInfo {
@@ -122,7 +123,7 @@ fn main() {
                     public_key: Some(public_string),
                 };
 
-                upload::host(info, Some(password))
+                upload::host(info, Some(password), private)
             }
         }
     }

@@ -1,10 +1,12 @@
 use crate::types::{ClientConnectionInfo, UploaderInfo};
 use rand::prelude::*;
 
-use rsa::{RsaPrivateKey, RsaPublicKey};
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
-use std::str;
+use std::{clone, str};
+
+// Move to encrypt?
 
 pub fn gen_private_key() -> RsaPrivateKey {
     let mut rng = rand::thread_rng();
@@ -18,7 +20,8 @@ pub fn gen_public_key(key: RsaPrivateKey) -> RsaPublicKey {
 pub fn upload_files() {
     //Nils tar det
 }
-pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
+
+pub fn host(uploader_info: UploaderInfo, password: Option<String>, private_key: RsaPrivateKey) {
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
     println!("Hosting...");
 
@@ -46,21 +49,31 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>) {
             // password sharing, then give encrypted files
             let res = bincode::deserialize::<ClientConnectionInfo>(data).unwrap();
 
-            println!("{:#?}", res.encrypted_password); // Debug
+            let decypted_key = private_key
+                .decrypt(Pkcs1v15Encrypt, &res.encrypted_password)
+                .expect("Failed to decrypt passowrd");
 
-        // decrypt res.password
-        // if res.password
-        //     == password
-        //         .clone()
-        //         .expect("You must provide a password if the files aren't public!")
-        // {
+            let decrypted_password =
+                String::from_utf8(decypted_key).expect("failed to create password string");
+
+            if let Some(password_ref) = password.as_ref() {
+                if decrypted_password == *password_ref {
+                    println!("Correct Password");
+                    // Do stuff, upload_files()
+                } else {
+                    println!("Wrong password");
+                    // Nej
+                }
+            } else {
+                panic!("You must provide a password");
+            }
 
         // give the files encrypted with the password
-        // }
         } else if req_id == 3 {
             if !uploader_info.public {
                 continue;
             }
+            // Do stuff, upload_files()
         }
     }
 }
