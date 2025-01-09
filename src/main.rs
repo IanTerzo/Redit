@@ -1,8 +1,8 @@
-mod connect;
+mod client;
+mod server;
 mod encryption;
 mod scan;
 mod types;
-mod upload;
 mod utils;
 mod words;
 use argh::FromArgs;
@@ -65,7 +65,7 @@ fn main() {
             // Nils fixar detta
             Commands::Scan(_command) => {
                 let availible_hosts = scan::scan_network(1000);
-                println!("{:#?}", availible_hosts); // Visa upp de fint.
+                println!("{:#?}", availible_hosts); // Visa upp dem fint.
                 println!("Choose a host to connect to 0 - 10: ");
 
                 let mut input = String::new();
@@ -82,7 +82,7 @@ fn main() {
                     let decoded_der = decode(host_public_key_string).unwrap(); // Base64 decode
                     let host_public_key = RsaPublicKey::from_pkcs1_der(&decoded_der).unwrap();
 
-                    print("password: ")
+                    println!("password: ");
                     let mut password = String::new();
                     io::stdin()
                         .read_line(&mut password)
