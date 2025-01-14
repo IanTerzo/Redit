@@ -70,26 +70,26 @@ fn host(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
         .expect("Failed to set read timeout");
 
     loop {
-        match socket.recv_from(&mut buf) {
-            Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
-                Ok(res) => {
-                    hosts.push((res, src.ip()));
-                }
-                Err(e) => {
-                    println!("Failed to deserialize packet: {}", e);
-                }
-            },
-            Err(ref e)
-                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
-            {
-                // Timeout occurred, continue the loop
-                break;
+        let (_amt, src) = match socket.recv_from(&mut buf) {
+            Ok((amt, src)) => (amt, src),
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
+                continue
             }
             Err(e) => {
                 println!("Failed to receive packet: {}", e);
+                break
+            },
+        };
+        match bincode::deserialize::<UploaderInfo>(&buf) {
+            Ok(res) => {
+                hosts.push((res, src.ip()));
+            }
+            Err(e) => {
+                println!("Failed to deserialize packet: {}", e);
             }
         }
     }
 
     hosts
 }
+
