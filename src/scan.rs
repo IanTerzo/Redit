@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Duration;
 use std::{io, thread};
+use crate::types;
 
 use crate::types::{
     ReditPacket,
@@ -35,11 +36,11 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
         }
 
         let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-        let packet = ReditPacket::RequestUploaderInfo({
-
+        let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
+            public_key: Some("".to_string()),
         });
 
-        let _ = socket.send_to(&packet, addr);
+        let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
     }
 
     // Wait for the host thread to finish and collect the results
