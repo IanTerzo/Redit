@@ -11,8 +11,8 @@ const PORT: u16 = 6969;
 
 pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let local_ip = get_local_ip();
-    let subnet = match local_ip {
-        IpAddr::V4(ipv4) => get_subnet(ipv4),
+    let octets = match local_ip {
+        IpAddr::V4(ipv4) => ipv4.octets(),
         IpAddr::V6(_) => {
             println!("IPv6 is not supported");
             return Vec::new();
@@ -25,17 +25,22 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let listener_thread = thread::spawn(move || recieve_uploader_info(socket_clone, timeout));
 
     // Broadcast a packet to every IP in the subnet
-    for ip in subnet {
-        if ip == local_ip {
-            continue;
+    if local_ip.is_ipv4() {
+        for b in 1..255 {
+            for c in 1..255 {
+                let ip = Ipv4Addr::new(octets[0], octets[1], b, c);
+                if ip == local_ip {
+                    continue;
+                }
+
+                let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+                let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
+                    public_key: Some("".to_string()),
+                });
+
+                let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
+            }
         }
-
-        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-        let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
-            public_key: Some("".to_string()),
-        });
-
-        let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
     }
 
     // Wait for the host thread to finish and collect the results
@@ -46,14 +51,6 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     hosts
 }
 
-fn get_subnet(local_ip: Ipv4Addr) -> Vec<Ipv4Addr> {
-    let mut subnet = Vec::new();
-    let octets = local_ip.octets();
-    for i in 1..=254 {
-        subnet.push(Ipv4Addr::new(octets[0], octets[1], octets[2], i));
-    }
-    subnet
-}
 
 fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let mut buf = [0; 1024];
@@ -91,3 +88,4 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
 
     hosts
 }
+
