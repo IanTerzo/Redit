@@ -14,16 +14,10 @@ pub fn connect_to_host(
     ip_address: IpAddr,
     encrypted_password: Vec<u8>,
 ) -> Result<ClientConnectionInfo, String> {
-    let local_ip = get_local_ip();
-
-    let request_id: u8 = 2;
     let connection_info = ClientConnectionInfo {
         encrypted_password: encrypted_password,
     };
-    let mut serialized_data = bincode::serialize(&connection_info).unwrap();
-    let mut payload = Vec::with_capacity(1 + serialized_data.len());
-    payload.push(request_id);
-    payload.append(&mut serialized_data);
+    let payload = bincode::serialize(&types::ReditPacket::ClientConnectionInfo(connection_info)).unwrap();
 
     let socket = UdpSocket::bind("0.0.0.0:6970").map_err(|e| e.to_string())?;
     let addr: SocketAddr = SocketAddr::new(ip_address, 6969);
