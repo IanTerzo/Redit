@@ -69,6 +69,7 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
             // Deserialize as UploaderInfo
             Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
                 Ok(res) => {
+                    println!("{}: {:?}", src, res.hashed_connection_salt);
                     // Add the hosts UploaderInfo and ip to hosts
                     hosts.push((res, src.ip()));
                 }
