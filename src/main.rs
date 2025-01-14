@@ -12,11 +12,8 @@ use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use rsa::RsaPublicKey;
 use std::io;
 use types::UploaderInfo;
-// move gen_private_key and gen_public_key to encryption
-use client::connect_to_host;
-use server::{gen_private_key, gen_public_key};
-// This souldn't be done here
-use base64::{decode, encode};
+
+
 /// Redit file sharing
 #[derive(FromArgs)]
 struct Cli {
@@ -80,8 +77,7 @@ fn main() {
                 if selected.0.public == false {
                     // TODO: move to encryption module
                     let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
-                    let decoded_der = decode(host_public_key_string).unwrap(); // Base64 decode
-                    let host_public_key = RsaPublicKey::from_pkcs1_der(&decoded_der).unwrap();
+                    let host_public_key = encryption::public_key_from_string(host_public_key_string).unwrap();
 
                     println!("password: ");
                     let mut password = String::new();
@@ -97,7 +93,7 @@ fn main() {
                         .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
                         .unwrap();
 
-                    client::connect_to_host(selected.1, encrypted_password);
+                    let _ = client::connect_to_host(selected.1, encrypted_password);
                 } else {
                     //idk
                 }
@@ -113,16 +109,16 @@ fn main() {
                     .expect("Failed to read line");
 
                 let password = password.trim().to_string();
-                let private = gen_private_key();
-                let public = gen_public_key(private.clone()).to_pkcs1_der().unwrap();
-                let public_string = encode(public);
+
+                let private = encryption::generate_private_key();
+                let public = encryption::generate_public_key(private.clone());
 
                 let info = UploaderInfo {
                     public: false,
                     name: "Ian".to_string(),
                     files_size: 3,
-                    public_key: Some(public_string),
-                    hashed_connection_salt: Some("fdsfd".to_string()),
+                    public_key: Some(encryption::public_key_to_string(public)),
+                    hashed_connection_salt: None,
                 };
 
                 server::host(info, Some(password), private)
@@ -130,3 +126,4 @@ fn main() {
         }
     }
 }
+

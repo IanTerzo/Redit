@@ -15,7 +15,7 @@ pub fn connect_to_host(
     encrypted_password: Vec<u8>,
 ) -> Result<ClientConnectionInfo, String> {
     let connection_info = ClientConnectionInfo {
-        encrypted_password: encrypted_password,
+        encrypted_password,
     };
     let payload = bincode::serialize(&types::ReditPacket::ClientConnectionInfo(connection_info)).unwrap();
 

@@ -1,22 +1,8 @@
 use crate::types::{ClientConnectionInfo, UploaderInfo};
-use rand::prelude::*;
-
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
-use serde::{Deserialize, Serialize};
-use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
-use std::{clone, str};
+use std::net::{SocketAddr, UdpSocket};
 use crate::types;
-
-// Move to encrypt?
-
-pub fn gen_private_key() -> RsaPrivateKey {
-    let mut rng = rand::thread_rng();
-    RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate a key")
-}
-
-pub fn gen_public_key(key: RsaPrivateKey) -> RsaPublicKey {
-    RsaPublicKey::from(&key)
-}
+use crate::encryption;
 
 pub fn upload_files() {
     //Nils tar det
@@ -27,6 +13,9 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>, private_key: 
     println!("Hosting...");
 
     let mut buf = [0; 1024];
+
+    let mut salt_mappings: std::collections::HashMap<SocketAddr, String> = Default::default();
+
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
 
@@ -44,7 +33,19 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>, private_key: 
         match packet {
             types::ReditPacket::RequestUploaderInfo(_) => {
                 // respond with the uploader info. (includes the public key)
-                let serialized = bincode::serialize(&uploader_info).unwrap();
+                let salt = match salt_mappings.get(&src) {
+                    Some(salt) => salt.to_owned(),
+                    None => {
+                        let salt = encryption::generate_salt();
+                        salt_mappings.insert(src, salt.clone());
+                        salt
+                    }
+                };
+
+                let mut local_uploader_info = uploader_info.clone();
+                local_uploader_info.hashed_connection_salt = Some(salt);
+
+                let serialized = bincode::serialize(&local_uploader_info).unwrap();
                 socket
                     .send_to(&serialized, src)
                     .expect("Couldn't send data");

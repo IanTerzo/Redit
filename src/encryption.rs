@@ -1,4 +1,6 @@
 use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
+use rsa::pkcs1::{EncodeRsaPublicKey, DecodeRsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use crate::words::WORDS;
 use itertools::Itertools;
 
@@ -34,6 +36,39 @@ fn key_from_passphrase(passphrase: String) -> String {
     let hashed = blake3::hash(passphrase.as_bytes());
     let encoded = ENGINE.encode(&hashed.to_string()[.. 32]);
     return encoded;
+}
+
+pub fn generate_private_key() -> RsaPrivateKey {
+    let mut rng = rand::thread_rng();
+    RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate a key")
+}
+
+pub fn generate_public_key(key: RsaPrivateKey) -> RsaPublicKey {
+    RsaPublicKey::from(&key)
+}
+
+pub fn public_key_to_string(ref key: RsaPublicKey) -> String {
+    let data: Vec<u8> = key.to_pkcs1_der().unwrap().into_vec();
+    ENGINE.encode(data)
+}
+
+pub fn public_key_from_string(key: String) -> Option<RsaPublicKey> {
+    let data = match ENGINE.decode(key) {
+        Ok(data) => data,
+        Err(_) => return None
+    };
+    let key = match RsaPublicKey::from_pkcs1_der(&data) {
+
+        Ok(data) => data,
+        Err(_) => return None
+    };
+    Some(key)
+}
+
+pub fn generate_salt() -> String {
+    let mut rand = [0u8; 511];
+    getrandom::fill(&mut rand).expect("Unable to initialize passphrase backing array");
+    ENGINE.encode(rand)
 }
 
 mod tests {
