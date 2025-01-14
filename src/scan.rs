@@ -1,12 +1,9 @@
+use crate::types;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Duration;
 use std::{io, thread};
-use crate::types;
 
-use crate::types::{
-    ReditPacket,
-    UploaderInfo
-};
+use crate::types::{ReditPacket, UploaderInfo};
 
 use crate::utils::get_local_ip;
 
@@ -23,11 +20,9 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     };
 
     // Start the host thread
-    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT))
-        .expect("Couldn't bind to address");
-    let socket_clone = socket.try_clone()
-        .expect("Failed to clone socket");
-    let listener_thread = thread::spawn(move || host(socket_clone, timeout));
+    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
+    let socket_clone = socket.try_clone().expect("Failed to clone socket");
+    let listener_thread = thread::spawn(move || recieve_uploader_info(socket_clone, timeout));
 
     // Broadcast a packet to every IP in the subnet
     for ip in subnet {
@@ -60,36 +55,38 @@ fn get_subnet(local_ip: Ipv4Addr) -> Vec<Ipv4Addr> {
     subnet
 }
 
-fn host(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
+fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let mut buf = [0; 1024];
     let mut hosts = Vec::new();
 
-    // Set a read timeout of 100 milliseconds
+    // Set a read timeout of 100 milliseconds to stop awaiting if there are no responses after 100 milliseconds
     socket
         .set_read_timeout(Some(Duration::from_millis(timeout)))
         .expect("Failed to set read timeout");
 
     loop {
-        let (_amt, src) = match socket.recv_from(&mut buf) {
-            Ok((amt, src)) => (amt, src),
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
-                continue
+        match socket.recv_from(&mut buf) {
+            // Deserialize as UploaderInfo
+            Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
+                Ok(res) => {
+                    // Add the hosts UploaderInfo and ip to hosts
+                    hosts.push((res, src.ip()));
+                }
+                Err(e) => {
+                    println!("Failed to deserialize packet: {}", e);
+                }
+            },
+            Err(ref e)
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
+            {
+                // Timeout occurred, break the loop.
+                break;
             }
             Err(e) => {
                 println!("Failed to receive packet: {}", e);
-                break
-            },
-        };
-        match bincode::deserialize::<UploaderInfo>(&buf) {
-            Ok(res) => {
-                hosts.push((res, src.ip()));
-            }
-            Err(e) => {
-                println!("Failed to deserialize packet: {}", e);
             }
         }
     }
 
     hosts
 }
-
