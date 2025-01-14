@@ -33,7 +33,10 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>, private_key: 
         let packet_data = &buf[..amt];
         let packet: types::ReditPacket = match bincode::deserialize(packet_data) {
             Ok(data) => data,
-            Err(_) => continue
+            Err(e) => {
+                println!("Received undeserializable packet: {:?}", e);
+                continue
+            }
         };
 
         println!("{:?}", packet);
