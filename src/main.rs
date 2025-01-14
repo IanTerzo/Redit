@@ -1,7 +1,7 @@
 mod client;
-mod server;
 mod encryption;
 mod scan;
+mod server;
 mod types;
 mod utils;
 mod words;
@@ -13,7 +13,8 @@ use rsa::RsaPublicKey;
 use std::io;
 use types::UploaderInfo;
 // move gen_private_key and gen_public_key to encryption
-use upload::{gen_private_key, gen_public_key};
+use client::connect_to_host;
+use server::{gen_private_key, gen_public_key};
 // This souldn't be done here
 use base64::{decode, encode};
 /// Redit file sharing
@@ -96,7 +97,7 @@ fn main() {
                         .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
                         .unwrap();
 
-                    connect::connect_to_host(selected.1, encrypted_password);
+                    client::connect_to_host(selected.1, encrypted_password);
                 } else {
                     //idk
                 }
@@ -121,9 +122,10 @@ fn main() {
                     name: "Ian".to_string(),
                     files_size: 3,
                     public_key: Some(public_string),
+                    hashed_connection_salt: Some("fdsfd".to_string()),
                 };
 
-                upload::host(info, Some(password), private)
+                server::host(info, Some(password), private)
             }
         }
     }
