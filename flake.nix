@@ -5,8 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
   };
 
-  outputs = { nixpkgs, ... }:
-  let
+  outputs = { nixpkgs, ... }: let
     system = "x86_64-linux";
     buildInputs = [ pkgs.openssl ];
     redit = (pkgs.rustPlatform.buildRustPackage {
@@ -33,7 +32,6 @@
   {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = buildInputs ++ (with pkgs; [
-        cargo
         rustc
         pkg-config
       ]);
@@ -41,3 +39,4 @@
     packages.x86_64-linux.default = redit;
   };
 }
+

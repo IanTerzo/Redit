@@ -5,6 +5,7 @@ use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::{clone, str};
+use crate::types;
 
 // Move to encrypt?
 
@@ -29,51 +30,48 @@ pub fn host(uploader_info: UploaderInfo, password: Option<String>, private_key: 
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();
 
-        println!("Received packet from: {}", src);
-
         let packet_data = &buf[..amt];
-        let (req_id, data) = packet_data.split_at(1);
-        let req_id: u8 = req_id[0];
+        let packet: types::ReditPacket = match bincode::deserialize(packet_data) {
+            Ok(data) => data,
+            Err(_) => continue
+        };
 
-        println!("{}", req_id);
+        println!("{:?}", packet);
 
-        if req_id == 1 {
-            // respond with the uploader info. (includes the public key)
-            let serialized = bincode::serialize(&uploader_info).unwrap();
-            socket
-                .send_to(&serialized, src)
-                .expect("Couldn't send data");
+        match packet {
+            types::ReditPacket::RequestUploaderInfo(_) => {
+                // respond with the uploader info. (includes the public key)
+                let serialized = bincode::serialize(&uploader_info).unwrap();
+                socket
+                    .send_to(&serialized, src)
+                    .expect("Couldn't send data");
 
-            continue;
-        } else if req_id == 2 {
-            // password sharing, then give encrypted files
-            let res = bincode::deserialize::<ClientConnectionInfo>(data).unwrap();
-
-            let decypted_key = private_key
-                .decrypt(Pkcs1v15Encrypt, &res.encrypted_password)
-                .expect("Failed to decrypt passowrd");
-
-            let decrypted_password =
-                String::from_utf8(decypted_key).expect("failed to create password string");
-
-            if let Some(password_ref) = password.as_ref() {
-                if decrypted_password == *password_ref {
-                    println!("Correct Password");
-                    // Do stuff, upload_files()
-                } else {
-                    println!("Wrong password");
-                    // Nej
-                }
-            } else {
-                panic!("You must provide a password");
-            }
-
-        // give the files encrypted with the password
-        } else if req_id == 3 {
-            if !uploader_info.public {
                 continue;
             }
-            // Do stuff, upload_files()
+            types::ReditPacket::ClientConnectionInfo(res) => {
+                let decypted_key = private_key
+                    .decrypt(Pkcs1v15Encrypt, &res.encrypted_password)
+                    .expect("Failed to decrypt passowrd");
+
+                let decrypted_password =
+                    String::from_utf8(decypted_key).expect("failed to create password string");
+
+                if let Some(password_ref) = password.as_ref() {
+                    if decrypted_password == *password_ref {
+                        println!("Correct Password");
+                        // Do stuff, upload_files()
+                    } else {
+                        println!("Wrong password");
+                        // Nej
+                    }
+                } else {
+                    panic!("You must provide a password");
+                }
+            }
+            unexpected => {
+                println!("Received unexpected packet {:?}", unexpected);
+            }
         }
     }
 }
+

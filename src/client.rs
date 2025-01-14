@@ -8,6 +8,7 @@ use std::{
     thread,
     time::Duration,
 };
+use crate::types;
 
 pub fn connect_to_host(
     ip_address: IpAddr,
@@ -50,24 +51,35 @@ fn wait_for_host(
         .map_err(|e| e.to_string())?;
 
     loop {
-        match socket.recv_from(&mut buf) {
-            Ok((amt, src)) => {
+        let (amt, src) = match socket.recv_from(&mut buf) {
+            Ok((amt, src)) => (amt, src),
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
+                return Err("".to_string());
+            }
+            Err(e) => {
+                println!("Failed to receive packet: {}", e);
+                continue
+            },
+        };
+
+        let packet_data = &buf[..amt];
+        let packet: types::ReditPacket = match bincode::deserialize(packet_data) {
+            Ok(data) => data,
+            Err(_) => continue
+        };
+
+        println!("{:?}", packet);
+
+        match packet {
+            types::ReditPacket::ClientConnectionInfo(client_connection_info) => {
                 if src.ip() == uploader_addr.ip() {
-                    match bincode::deserialize::<ClientConnectionInfo>(&buf[..amt]) {
-                        Ok(res) => return Ok(res),
-                        Err(e) => println!("Failed to deserialize packet: {}", e),
-                    }
+                    return Ok(client_connection_info);
                 }
+            },
+            unexpected => {
+                println!("Received unexpected packet {:?}", unexpected);
             }
-            Err(ref e)
-                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
-            {
-                // Timeout occurred, break the loop
-                break;
-            }
-            Err(e) => println!("Failed to receive packet: {}", e),
         }
     }
-
-    Err("No valid packets received".to_string())
 }
+

@@ -2,7 +2,11 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Duration;
 use std::{io, thread};
 
-use crate::types::UploaderInfo;
+use crate::types::{
+    ReditPacket,
+    UploaderInfo
+};
+
 use crate::utils::get_local_ip;
 
 const PORT: u16 = 6969;
@@ -18,8 +22,10 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     };
 
     // Start the host thread
-    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
-    let socket_clone = socket.try_clone().expect("Failed to clone socket");
+    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT))
+        .expect("Couldn't bind to address");
+    let socket_clone = socket.try_clone()
+        .expect("Failed to clone socket");
     let listener_thread = thread::spawn(move || host(socket_clone, timeout));
 
     // Broadcast a packet to every IP in the subnet
@@ -29,10 +35,11 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
         }
 
         let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-        let request_id: u8 = 1;
-        let request_id = [request_id];
+        let packet = ReditPacket::RequestUploaderInfo({
 
-        let _ = socket.send_to(&request_id, addr);
+        });
+
+        let _ = socket.send_to(&packet, addr);
     }
 
     // Wait for the host thread to finish and collect the results
