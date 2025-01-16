@@ -11,7 +11,8 @@ use crate::utils::get_local_ip;
 
 const PORT: u16 = 6969;
 
-fn resolve_packet(packet: ReditPacket) -> Option<HashSet<IpAddr>> {
+pub fn resolve_packet(packet: ReditPacket) -> Option<HashSet<IpAddr>> {
+	println!("<- {:?}", packet);
 	match packet {
 		ReditPacket::ScanStore(scan_store) => {
 			return Some(scan_store.store);
@@ -20,14 +21,15 @@ fn resolve_packet(packet: ReditPacket) -> Option<HashSet<IpAddr>> {
 	}
 }
 
-fn request_packet(socket: &UdpSocket, addr: SocketAddr) {
+pub fn request_packet(socket: &UdpSocket, addr: SocketAddr) {
 	let packet = ReditPacket::RequestScanStore(RequestScanStore {
 	});
 
+	println!("-> {:?}", packet);
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
-fn scan_receive(tx: mpsc::Sender<HashSet<IpAddr>>) {
+pub fn scan_receive(tx: mpsc::Sender<HashSet<IpAddr>>) {
 	let mut buf = [0; 1024];
 	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
 
@@ -60,12 +62,15 @@ fn scan_receive(tx: mpsc::Sender<HashSet<IpAddr>>) {
 	}
 }
 
-fn scan() {
+pub fn scan() {
+	println!("Scanning efficiently");
 	scan_efficient(3);
+	println!("Scanning iteratively");
 	scan_iterative();
 }
 
-fn submit_scan_store(socket: &UdpSocket, addr: SocketAddr) {
+pub fn submit_scan_store(socket: &UdpSocket, addr: SocketAddr) {
+	println!("Submitting scan store");
 	let scan_store_persistent = match fs::OpenOptions::new().create(true).read(true).open("scan_store.txt") {
 		Ok(file) => file,
 		Err(_) => return
@@ -92,7 +97,7 @@ fn submit_scan_store(socket: &UdpSocket, addr: SocketAddr) {
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
-fn scan_efficient(depth: u32) {
+pub fn scan_efficient(depth: u32) {
 	if depth == 0 {
 		return;
 	}
@@ -137,7 +142,7 @@ fn scan_efficient(depth: u32) {
 	scan_efficient(depth - 1);
 }
 
-fn scan_iterative() -> HashSet<IpAddr> {
+pub fn scan_iterative() -> HashSet<IpAddr> {
 	let local_ip = get_local_ip();
 	let octets = match local_ip {
 		IpAddr::V4(ipv4) => ipv4.octets(),

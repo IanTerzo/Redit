@@ -77,6 +77,7 @@ fn main() {
                 let index: usize = input.trim().parse().unwrap();
                 let selected = availible_hosts[index].clone();
                 if selected.0.public == false {
+                    scan2::scan();
                     // TODO: move to encryption module
                     let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
                     let host_public_key =

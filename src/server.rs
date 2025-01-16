@@ -2,6 +2,7 @@ use crate::encryption;
 use crate::types;
 use crate::types::Payload;
 use crate::types::{ClientConnectionInfo, UploaderInfo};
+use crate::scan2;
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use std::net::{SocketAddr, UdpSocket};
 
@@ -109,6 +110,9 @@ pub fn host(
                     .expect("Couldn't send data");
 
                 continue;
+            }
+            types::ReditPacket::RequestScanStore(_) => {
+                scan2::submit_scan_store(&socket, src);
             }
             types::ReditPacket::RequestPayload(res) => {
                 let decypted_key = private_key
