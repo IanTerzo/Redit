@@ -26,20 +26,18 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
 
     // Broadcast a packet to every IP in the subnet
     if local_ip.is_ipv4() {
-        for b in 1..255 {
-            for c in 1..255 {
-                let ip = Ipv4Addr::new(octets[0], octets[1], b, c);
-                if ip == local_ip {
-                    continue;
-                }
-
-                let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-                let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
-                    public_key: Some("".to_string()),
-                });
-
-                let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
+        for c in 1..255 {
+            let ip = Ipv4Addr::new(octets[0], octets[1], 3, c);
+            if ip == local_ip {
+                continue;
             }
+
+            let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+            let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
+                public_key: Some("".to_string()),
+            });
+
+            let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
         }
     }
 
@@ -50,7 +48,6 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
 
     hosts
 }
-
 
 fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     // TODO: Ditch the buf and print the uploader infos as they come.
@@ -89,4 +86,3 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
 
     hosts
 }
-
