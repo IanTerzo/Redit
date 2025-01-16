@@ -1,5 +1,6 @@
+use crate::types::{self, Payload};
 use crate::{
-    types::{ClientConnectionInfo, ServerConnectionInfo, UploaderInfo},
+    types::{ClientConnectionInfo, RequestPayload, ServerConnectionInfo, UploaderInfo},
     utils::get_local_ip,
 };
 use std::{
@@ -8,72 +9,84 @@ use std::{
     thread,
     time::Duration,
 };
-use crate::types;
 
-pub fn connect_to_host(
-    ip_address: IpAddr,
+pub fn request_and_await_payload(
+    host_ip: IpAddr,
     encrypted_password: Vec<u8>,
-) -> Result<ClientConnectionInfo, String> {
-    let connection_info = ClientConnectionInfo {
+    filename: String,
+) -> Payload {
+    let socket = UdpSocket::bind("0.0.0.0:6970")
+        .map_err(|e| e.to_string())
+        .unwrap();
+
+    let host_addr: SocketAddr = SocketAddr::new(host_ip, 6969);
+
+    request_payload(
+        socket.try_clone().unwrap(),
+        host_addr,
         encrypted_password,
-    };
-    let payload = bincode::serialize(&types::ReditPacket::ClientConnectionInfo(connection_info)).unwrap();
+        filename,
+        0,
+    );
 
-    let socket = UdpSocket::bind("0.0.0.0:6970").map_err(|e| e.to_string())?;
-    let addr: SocketAddr = SocketAddr::new(ip_address, 6969);
-    let socket_clone = socket.try_clone().map_err(|e| e.to_string())?;
-    let listener_thread = thread::spawn(move || wait_for_host(socket_clone, 1000, addr));
-
-    socket.send_to(&payload, addr).map_err(|e| e.to_string())?;
-
-    // Wait for the host thread to finish and collect the results
-    listener_thread
-        .join()
-        .map_err(|_| "Failed to join listener thread".to_string())?
+    await_payload(socket, host_addr)
 }
 
-fn wait_for_host(
+pub fn request_payload(
     socket: UdpSocket,
-    timeout: u64,
     uploader_addr: SocketAddr,
-) -> Result<ClientConnectionInfo, String> {
-    let mut buf = [0; 1024];
+    hashed_password: Vec<u8>,
+    filename: String,
+    payload_index: u32,
+) {
+    let request_payload = RequestPayload {
+        hashed_password: hashed_password,
+        hashed_filename: filename,
+        payload_index: payload_index,
+    };
 
-    // Set a read timeout of 100 milliseconds
+    let payload = bincode::serialize(&types::ReditPacket::RequestPayload(request_payload)).unwrap();
+
     socket
-        .set_read_timeout(Some(Duration::from_millis(timeout)))
-        .map_err(|e| e.to_string())?;
+        .send_to(&payload, uploader_addr)
+        .map_err(|e| e.to_string())
+        .unwrap();
+}
+
+pub fn await_payload(socket: UdpSocket, uploader_addr: SocketAddr) -> Payload {
+    let mut buf = [0; 16000];
 
     loop {
         let (amt, src) = match socket.recv_from(&mut buf) {
             Ok((amt, src)) => (amt, src),
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
-                return Err("".to_string());
-            }
             Err(e) => {
-                println!("Failed to receive packet: {}", e);
-                continue
-            },
+                println!("Failed to receive packet, trying again: {}", e);
+                continue;
+            }
         };
 
         let packet_data = &buf[..amt];
         let packet: types::ReditPacket = match bincode::deserialize(packet_data) {
             Ok(data) => data,
-            Err(_) => continue
+            Err(e) => {
+                println!("Recieved a corrupt packet: {}", e);
+                continue;
+            }
         };
 
         println!("{:?}", packet);
 
         match packet {
-            types::ReditPacket::ClientConnectionInfo(client_connection_info) => {
+            types::ReditPacket::Payload(payload) => {
                 if src.ip() == uploader_addr.ip() {
-                    return Ok(client_connection_info);
+                    // Make sure it's from the right person
+                    return payload;
                 }
-            },
+            }
             unexpected => {
                 println!("Received unexpected packet {:?}", unexpected);
+                continue;
             }
         }
     }
 }
-

@@ -53,7 +53,8 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
 
 
 fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
-    let mut buf = [0; 1024];
+    // TODO: Ditch the buf and print the uploader infos as they come.
+    let mut buf = [0; 64 * 1024];
     let mut hosts = Vec::new();
 
     // Set a read timeout of 100 milliseconds to stop awaiting if there are no responses after 100 milliseconds
