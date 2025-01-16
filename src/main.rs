@@ -13,7 +13,6 @@ use rsa::RsaPublicKey;
 use std::io;
 use types::UploaderInfo;
 
-
 /// Redit file sharing
 #[derive(FromArgs)]
 struct Cli {
@@ -46,6 +45,9 @@ struct HostCommand {
     #[argh(positional)]
     path: std::path::PathBuf,
 
+    #[argh(positional)]
+    name: String,
+
     /// make the content available to everyone
     #[argh(switch)]
     no_passphrase: bool,
@@ -60,9 +62,8 @@ fn main() {
 
     if let Some(command) = cli.command {
         match command {
-            // Nils fixar detta
             Commands::Scan(_command) => {
-                let availible_hosts = scan::scan_network(1000);
+                let availible_hosts = scan::scan_network(10000);
                 println!("{:#?}", availible_hosts); // Visa upp dem fint.
                 println!("Choose a host to connect to 0 - 10: ");
 
@@ -77,7 +78,8 @@ fn main() {
                 if selected.0.public == false {
                     // TODO: move to encryption module
                     let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
-                    let host_public_key = encryption::public_key_from_string(host_public_key_string).unwrap();
+                    let host_public_key =
+                        encryption::public_key_from_string(host_public_key_string).unwrap();
 
                     println!("password: ");
                     let mut password = String::new();
@@ -98,24 +100,20 @@ fn main() {
                     //idk
                 }
             }
-            Commands::Host(_command) => {
-                println!("Password");
-                // Todo: Ask if it needs to be private or public, it assumes private now
-
-                let mut password = String::new();
-
-                io::stdin()
-                    .read_line(&mut password)
-                    .expect("Failed to read line");
-
-                let password = password.trim().to_string();
+            Commands::Host(command) => {
+                let password = command
+                    .passphrase
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
 
                 let private = encryption::generate_private_key();
                 let public = encryption::generate_public_key(private.clone());
 
                 let info = UploaderInfo {
-                    public: false,
-                    name: "Ian".to_string(),
+                    public: command.no_passphrase,
+                    name: command.name,
                     files_size: 3,
                     public_key: Some(encryption::public_key_to_string(public)),
                     hashed_connection_salt: None,
@@ -126,4 +124,3 @@ fn main() {
         }
     }
 }
-
