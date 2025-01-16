@@ -95,7 +95,18 @@ fn main() {
                         .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
                         .unwrap();
 
-                    let _ = client::connect_to_host(selected.1, encrypted_password);
+                    let filename = "cats.txt".to_string();
+
+                    let first_payload =
+                        client::request_and_await_payload(selected.1, encrypted_password, filename);
+
+                    if !first_payload.success {
+                        println!("Error")
+                    } else {
+                        println!("Success")
+                    }
+
+                    println!("{:#?}", first_payload);
                 } else {
                     //idk
                 }
@@ -119,7 +130,7 @@ fn main() {
                     hashed_connection_salt: None,
                 };
 
-                server::host(info, Some(password), private)
+                server::host(info, "testdir".to_string(), Some(password), private)
             }
         }
     }

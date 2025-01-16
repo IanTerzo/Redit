@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RequestUploaderInfo {
-    pub public_key: Option<String>
+    pub public_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -12,12 +12,12 @@ pub struct UploaderInfo {
     pub name: String,
     pub files_size: i32,
     pub public_key: Option<String>,
-    pub hashed_connection_salt: Option<String>
+    pub hashed_connection_salt: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RequestPayload {
-    pub hashed_password: String,
+    pub hashed_password: Vec<u8>,
     pub hashed_filename: String,
     pub payload_index: u32,
 }
@@ -39,7 +39,7 @@ pub struct ServerConnectionInfo {
     pub success: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq )]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[repr(u16)]
 pub enum ReditPacket {
     RequestUploaderInfo(RequestUploaderInfo) = 0,
@@ -49,4 +49,3 @@ pub enum ReditPacket {
     ClientConnectionInfo(ClientConnectionInfo) = 4,
     ServerConnectionInfo(ServerConnectionInfo) = 5,
 }
-
