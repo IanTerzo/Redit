@@ -128,7 +128,9 @@ pub fn host(
                             data: Vec::new(),
                         };
 
-                        let serialized = bincode::serialize(&response_payload).unwrap();
+                        let serialized =
+                            bincode::serialize(&types::ReditPacket::Payload(response_payload))
+                                .unwrap();
                         socket
                             .send_to(&serialized, src)
                             .expect("Couldn't send data");
@@ -141,7 +143,9 @@ pub fn host(
                             data: Vec::new(),
                         };
 
-                        let serialized = bincode::serialize(&response_payload).unwrap();
+                        let serialized =
+                            bincode::serialize(&types::ReditPacket::Payload(response_payload))
+                                .unwrap();
                         socket
                             .send_to(&serialized, src)
                             .expect("Couldn't send data");
