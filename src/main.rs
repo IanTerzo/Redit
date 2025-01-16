@@ -5,6 +5,7 @@ mod server;
 mod types;
 mod utils;
 mod words;
+mod scan2;
 use argh::FromArgs;
 use rand::rngs::OsRng;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};

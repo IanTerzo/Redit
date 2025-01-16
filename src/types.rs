@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RequestUploaderInfo {
@@ -40,6 +41,16 @@ pub struct ServerConnectionInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct RequestScanStore {
+
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ScanStore {
+    pub store: HashSet<IpAddr>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq )]
 #[repr(u16)]
 pub enum ReditPacket {
     RequestUploaderInfo(RequestUploaderInfo) = 0,
@@ -48,4 +59,7 @@ pub enum ReditPacket {
     Payload(Payload) = 3,
     ClientConnectionInfo(ClientConnectionInfo) = 4,
     ServerConnectionInfo(ServerConnectionInfo) = 5,
+    RequestScanStore(RequestScanStore) = 6,
+    ScanStore(ScanStore) = 7,
 }
+
