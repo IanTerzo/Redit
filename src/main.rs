@@ -5,6 +5,7 @@ mod server;
 mod types;
 mod utils;
 mod words;
+mod logging;
 use argh::FromArgs;
 use rand::rngs::OsRng;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
@@ -12,6 +13,8 @@ use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use rsa::RsaPublicKey;
 use std::io;
 use types::UploaderInfo;
+use logging::Logger;
+
 
 /// Redit file sharing
 #[derive(FromArgs)]
@@ -59,6 +62,9 @@ struct HostCommand {
 
 fn main() {
     let cli: Cli = argh::from_env();
+    let logger = Logger::new(Some("http://localhost:8080".to_string()));
+
+    logger.log_info("Starting Redit");
 
     if let Some(command) = cli.command {
         match command {
