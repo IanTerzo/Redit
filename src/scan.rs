@@ -1,7 +1,7 @@
 use crate::types;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::time::Duration;
-use std::{io, thread};
+use std::{io::{self, Read, Write}, thread};
 
 use crate::types::{ReditPacket, UploaderInfo};
 
@@ -20,25 +20,25 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     };
 
     // Start the host thread
-    let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
-    let socket_clone = socket.try_clone().expect("Failed to clone socket");
-    let listener_thread = thread::spawn(move || recieve_uploader_info(socket_clone, timeout));
+    let listener = TcpListener::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
+    listener.set_nonblocking(true).expect("Failed to set non-blocking");
+    let listener_thread = thread::spawn(move || receive_uploader_info(listener, timeout));
 
-    // Broadcast a packet to every IP in the subnet
+    // Connect to every IP in the subnet
     if local_ip.is_ipv4() {
-        for b in 1..255 {
-            for c in 1..255 {
-                let ip = Ipv4Addr::new(octets[0], octets[1], b, c);
-                if ip == local_ip {
-                    continue;
-                }
+        for c in 1..255 {
+            let ip = Ipv4Addr::new(octets[0], octets[1], 3, c);
+            if ip == local_ip {
+                continue;
+            }
 
-                let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-                let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
-                    public_key: Some("".to_string()),
-                });
+            let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+            let packet = types::ReditPacket::RequestUploaderInfo(types::RequestUploaderInfo {
+                public_key: Some("".to_string()),
+            });
 
-                let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
+            if let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(timeout)) {
+                let _ = stream.write_all(&bincode::serialize(&packet).unwrap());
             }
         }
     }
@@ -51,41 +51,42 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     hosts
 }
 
-
-fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
-    let mut buf = [0; 1024];
+fn receive_uploader_info(listener: TcpListener, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let mut hosts = Vec::new();
-
-    // Set a read timeout of 100 milliseconds to stop awaiting if there are no responses after 100 milliseconds
-    socket
-        .set_read_timeout(Some(Duration::from_millis(timeout)))
-        .expect("Failed to set read timeout");
+    let start_time = std::time::Instant::now();
 
     loop {
-        match socket.recv_from(&mut buf) {
-            // Deserialize as UploaderInfo
-            Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
-                Ok(res) => {
-                    println!("{}: {:?}", src, res.hashed_connection_salt);
-                    // Add the hosts UploaderInfo and ip to hosts
-                    hosts.push((res, src.ip()));
+        if start_time.elapsed().as_millis() > timeout as u128 {
+            break;
+        }
+
+        match listener.accept() {
+            Ok((mut stream, addr)) => {
+                let mut buf = [0; 2048];
+                match stream.read(&mut buf) {
+                    Ok(_amt) => match bincode::deserialize::<UploaderInfo>(&buf) {
+                        Ok(res) => {
+                            println!("{}: {:?}", addr, res.hashed_connection_salt);
+                            hosts.push((res, addr.ip()));
+                        }
+                        Err(e) => {
+                            println!("Failed to deserialize packet: {}", e);
+                        }
+                    },
+                    Err(e) => {
+                        println!("Failed to read from stream: {}", e);
+                    }
                 }
-                Err(e) => {
-                    println!("Failed to deserialize packet: {}", e);
-                }
-            },
-            Err(ref e)
-                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
-            {
-                // Timeout occurred, break the loop.
-                break;
+            }
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                // No connection yet, continue looping
+                thread::sleep(Duration::from_millis(100));
             }
             Err(e) => {
-                println!("Failed to receive packet: {}", e);
+                println!("Failed to accept connection: {}", e);
             }
         }
     }
 
     hosts
 }
-
