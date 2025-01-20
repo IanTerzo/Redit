@@ -11,7 +11,9 @@ use rand::rngs::OsRng;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use rsa::RsaPublicKey;
+use std::fs::OpenOptions;
 use std::io;
+use std::io::Write;
 use types::UploaderInfo;
 
 /// Redit file sharing
@@ -116,6 +118,13 @@ fn main() {
 
                     let payload_count = first_payload.payload_count;
 
+                    let mut file = OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .append(true)
+                        .open("output.txt")
+                        .unwrap();
+
                     for index in 1..payload_count {
                         let payload = client::request_and_await_payload(
                             selected.1,
@@ -124,8 +133,7 @@ fn main() {
                             index,
                         );
                         data.extend(payload.data.clone());
-
-                        println!("{:#?}", payload);
+                        file.write_all(&payload.data).unwrap();
                     }
                 } else {
                     //idk
