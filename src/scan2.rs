@@ -1,3 +1,5 @@
+#![allow(dead_code, unused)]
+
 use std::thread;
 use std::sync::mpsc;
 use std::collections::HashSet;
@@ -131,7 +133,7 @@ pub fn scan_efficient(depth: u32) {
 	/* Allow leeway for respondees to respond. */
 	thread::sleep(Duration::from_millis(2000));
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
-	for scan_store in rx.recv() {
+	while let Ok(scan_store) = rx.recv() {
 		for record in scan_store {
 			scan_store_staging.insert(record);
 		}
@@ -179,7 +181,7 @@ pub fn scan_iterative() -> HashSet<IpAddr> {
 
 	thread::sleep(Duration::from_millis(2000));
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
-	for scan_store in rx.recv() {
+	while let Ok(scan_store) = rx.recv() {
 		for record in scan_store {
 			scan_store_staging.insert(record);
 		}
