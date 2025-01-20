@@ -17,4 +17,4 @@ itertools = "0.10.0"
 rand = "0.8.5"
 rsa = "0.9.7"
 colored = "3.0.0"
-reqwest = { version = "0.12.12", features = ["blocking"] }
+reqwest = { version = "0.12.12", features = ["blocking", "json"] }

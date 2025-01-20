@@ -1,6 +1,6 @@
 use colored::*;
 use reqwest::blocking::Client;
-use std::sync::Mutex;
+use serde::Serialize;
 
 pub enum LogColor {
     Red,
@@ -56,7 +56,41 @@ impl Logger {
         println!("{}", colored_message);
 
         if let Some(ref endpoint) = self.http_endpoint {
-            let _ = self.client.post(endpoint).body(message.to_string()).send();
+            let log_message = LogMessage {
+                message: message.to_string(),
+                color: match color {
+                    LogColor::Red => "31".to_string(),
+                    LogColor::Green => "32".to_string(),
+                    LogColor::Blue => "34".to_string(),
+                    LogColor::Yellow => "33".to_string(),
+                    LogColor::Cyan => "36".to_string(),
+                    LogColor::Magenta => "35".to_string(),
+                    LogColor::White => "37".to_string(),
+                    LogColor::Black => "30".to_string(),
+                },
+            };
+
+            match self
+                .client
+                .post(endpoint)
+                .json(&log_message)
+                .send()
+            {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        eprintln!("Failed to send log: {}", response.status());
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Error sending log: {}", err);
+                }
+            }
         }
     }
+}
+
+#[derive(Serialize)]
+struct LogMessage {
+    message: String,
+    color: String,
 }

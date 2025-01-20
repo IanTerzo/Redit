@@ -62,9 +62,9 @@ struct HostCommand {
 
 fn main() {
     let cli: Cli = argh::from_env();
-    let logger = Logger::new(Some("http://localhost:8080".to_string()));
-
+    let logger = Logger::new(Some("http://localhost:8080/log".to_string()));
     logger.log_info("Starting Redit");
+    logger.log_error("Test error");
 
     if let Some(command) = cli.command {
         match command {
