@@ -8,7 +8,7 @@ use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::time::Duration;
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use std::sync::mpsc;
 use std::{io, thread};
 use std::fs;
@@ -30,8 +30,8 @@ fn resolve_payload(packet: types::ReditPacket) -> Option<types::Payload> {
     }
 }
 
-fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32) {
-	let mut buf = [0; 1024];
+fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32, payloads_in_transit: Arc<Mutex<HashSet<u32>>>) {
+	let mut buf = [0; 524288];
 	let mut payloads_received: HashSet<u32> = Default::default();
 	loop {
 		match socket.recv_from(&mut buf) {
@@ -42,6 +42,7 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 						None => continue
 					};
 					payloads_received.insert(payload.index);
+					payloads_in_transit.lock().unwrap().remove(&payload.index);
 					match tx.send(payload) {
 						Ok(_) => {},
 						Err(_) => {}
@@ -68,7 +69,8 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 }
 
 pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, start: u32, end: u32, mut file: fs::File) {
-	let payloads_in_transit: Mutex<HashSet<u32>> = Default::default();
+	let payloads_in_transit: Arc<Mutex<HashSet<u32>>> = Default::default();
+	let payloads_in_transit_c = payloads_in_transit.clone();
 	let (tx, rx) = mpsc::channel::<types::Payload>();
 
 	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
@@ -86,7 +88,7 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	let server_socket: SocketAddr = SocketAddr::new(server_addr, 6969);
 
 	let listener = thread::spawn(move || {
-		pipeline_receive(listener_socket, tx, start, end);
+		pipeline_receive(listener_socket, tx, start, end, payloads_in_transit_c);
 	});
 
 	for index in start..end {
