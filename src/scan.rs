@@ -21,12 +21,12 @@ use crate::utils::get_local_ip;
 const PORT: u16 = 6969;
 
 fn resolve_payload(packet: types::ReditPacket) -> Option<types::Payload> {
-    match packet {
-        types::ReditPacket::Payload(payload) => {
-            return Some(payload);
-        }
-        _ => { return None; }
-    }
+	match packet {
+		types::ReditPacket::Payload(payload) => {
+			return Some(payload);
+		}
+		_ => { return None; }
+	}
 }
 
 fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32, start_byte: u64, end_byte: u64, payloads_in_transit: Arc<Mutex<HashSet<u32>>>) {
@@ -131,11 +131,11 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 }
 
 pub fn scan() {
-    let availible_hosts = scan_network(10000);
-    log_info(&format!("{:#?}", availible_hosts)); // Visa upp dem fint.
-    log_info("Choose a host to connect to 0 - 10: ");
+	let availible_hosts = scan_network(10000);
+	log_info(&format!("{:#?}", availible_hosts)); // Visa upp dem fint.
+	log_info("Choose a host to connect to 0 - 10: ");
 
-    let mut input = String::new();
+	let mut input = String::new();
 
 	io::stdin()
 		.read_line(&mut input)

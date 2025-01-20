@@ -48,13 +48,13 @@ mod tests {
 		let fernet = fernet::Fernet::new(&key_from_passphrase(passphrase)).unwrap();
 		return fernet.encrypt(&data);
 	}
-	
+
 	#[allow(dead_code)]
 	fn decrypt(data: &str, passphrase: String) -> Result<Vec<u8>, fernet::DecryptionError> {
 		let fernet = fernet::Fernet::new(&key_from_passphrase(passphrase)).unwrap();
 		return fernet.decrypt(&data);
 	}
-	
+
 	#[allow(dead_code)]
 	fn generate_passphrase(len: u8) -> String {
 		let mut passphrase: String = "".to_string();
@@ -70,7 +70,7 @@ mod tests {
 		}
 		return passphrase;
 	}
-	
+
 	fn key_from_passphrase(passphrase: String) -> String {
 		let hashed = blake3::hash(passphrase.as_bytes());
 		let encoded = ENGINE.encode(&hashed.to_string()[.. 32]);
