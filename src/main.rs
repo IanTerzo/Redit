@@ -125,6 +125,8 @@ fn main() {
                         .open("output.txt")
                         .unwrap();
 
+                    file.write_all(&first_payload.data).unwrap();
+
                     for index in 1..payload_count {
                         let payload = client::request_and_await_payload(
                             selected.1,
