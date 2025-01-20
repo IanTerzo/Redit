@@ -62,7 +62,7 @@ pub fn upload_files() {
     println!("{:#?}", content);
 }
 
-fn read_file_chunk(file_path: String, start: u64, end: u64) -> io::Result<Vec<u8>> {
+fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>> {
     let mut file = File::open(file_path).unwrap();
 
     file.seek(SeekFrom::Start(start)).unwrap();
@@ -76,12 +76,11 @@ fn read_file_chunk(file_path: String, start: u64, end: u64) -> io::Result<Vec<u8
 
 pub fn host(
     uploader_info: UploaderInfo,
-    file_path: String,
+    file_path: &Path,
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
-    let path_path = Path::new(&file_path);
-    let metadata = std::fs::metadata(path_path).unwrap();
+    let metadata = std::fs::metadata(file_path).unwrap();
     let file_size = u32::try_from(metadata.len()).unwrap();
     let chunk_count = file_size.div_ceil(16384);
 
@@ -168,12 +167,8 @@ pub fn host(
                         data_end = file_size
                     }
 
-                    let data = read_file_chunk(
-                        file_path.to_string().clone(),
-                        data_start.into(),
-                        data_end.into(),
-                    )
-                    .unwrap();
+                    let data =
+                        read_file_chunk(&file_path, data_start.into(), data_end.into()).unwrap();
 
                     let response_payload = Payload {
                         success: true,

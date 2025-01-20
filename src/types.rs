@@ -8,11 +8,18 @@ pub struct RequestUploaderInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum PackagingType {
+    None,
+    Tarred,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UploaderInfo {
     pub public: bool,
     pub name: String,
     pub files_size: i32,
     pub file_name: String,
+    pub packaging: PackagingType,
     pub public_key: Option<String>,
     pub hashed_connection_salt: Option<String>,
 }

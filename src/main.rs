@@ -14,8 +14,8 @@ use rsa::RsaPublicKey;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
-use types::UploaderInfo;
 use std::path::Path;
+use types::UploaderInfo;
 
 /// Redit file sharing
 #[derive(FromArgs)]
@@ -153,16 +153,25 @@ fn main() {
                 let private = encryption::generate_private_key();
                 let public = encryption::generate_public_key(private.clone());
 
+                let file_path = command.path.as_path();
+
+                let packaging_type = if file_path.is_dir() {
+                    types::PackagingType::Tarred
+                } else {
+                    types::PackagingType::None
+                };
+
                 let info = UploaderInfo {
                     public: command.no_passphrase,
                     name: command.name,
-                    file_name: Path::new(&command.path).file_stem().unwrap().to_string_lossy().to_string(),
+                    file_name: file_path.file_name().unwrap().to_string_lossy().to_string(),
+                    packaging: packaging_type,
                     files_size: 3,
                     public_key: Some(encryption::public_key_to_string(public)),
                     hashed_connection_salt: None,
                 };
 
-                server::host(info, "testdir".to_string(), Some(password), private)
+                server::host(info, &file_path, Some(password), private)
             }
         }
     }
