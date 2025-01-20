@@ -21,7 +21,6 @@ use crate::utils::get_local_ip;
 const PORT: u16 = 6969;
 
 fn resolve_payload(packet: types::ReditPacket) -> Option<types::Payload> {
-    log_info(&format!("<- {:?}", packet));
     match packet {
         types::ReditPacket::Payload(payload) => {
             return Some(payload);
