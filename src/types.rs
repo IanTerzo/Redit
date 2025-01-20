@@ -17,7 +17,7 @@ pub enum PackagingType {
 pub struct UploaderInfo {
 	pub public: bool,
 	pub name: String,
-	pub files_size: i32,
+	pub files_size: u64,
 	pub file_name: String,
 	pub packaging: PackagingType,
 	pub public_key: Option<String>,
