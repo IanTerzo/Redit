@@ -71,8 +71,6 @@ pub fn await_payload(socket: UdpSocket, uploader_addr: SocketAddr) -> Payload {
             }
         };
 
-        println!("{:?}", packet);
-
         match packet {
             types::ReditPacket::Payload(payload) => {
                 if src.ip() == uploader_addr.ip() {
