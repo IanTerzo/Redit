@@ -36,7 +36,7 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 	let bar = indicatif::ProgressBar::new(end.into());
 	bar.set_style(
 		indicatif::ProgressStyle::default_bar()
-			.template("[{elapsed_precise}] {wide_bar} {binary_bytes}/{binary_total_bytes} {bytes_per_sec}/s [{eta}]")
+			.template("[{elapsed_precise}] {wide_bar} {binary_bytes}/{binary_total_bytes} {bytes_per_sec} [{eta}]")
 			.unwrap()
 			.progress_chars("#>-"),
 	);
