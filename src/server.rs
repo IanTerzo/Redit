@@ -1,16 +1,16 @@
 use crate::encryption;
+use crate::scan2;
 use crate::types;
 use crate::types::Payload;
 use crate::types::{ClientConnectionInfo, UploaderInfo};
-use crate::scan2;
-use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
-use std::net::{SocketAddr, UdpSocket};
-
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::net::{SocketAddr, UdpSocket};
 use std::path::Path;
 use tar::Builder;
 
@@ -62,12 +62,30 @@ pub fn upload_files() {
     println!("{:#?}", content);
 }
 
+fn read_file_chunk(file_path: String, start: u64, end: u64) -> io::Result<Vec<u8>> {
+    let mut file = File::open(file_path).unwrap();
+
+    file.seek(SeekFrom::Start(start)).unwrap();
+
+    let chunk_size = (end - start) as usize;
+    let mut buffer = vec![0; chunk_size];
+    file.read_exact(&mut buffer).unwrap();
+
+    Ok(buffer)
+}
+
 pub fn host(
     uploader_info: UploaderInfo,
     files_path: String,
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
+    let file_path = "debian-live-12.9.0-amd64-xfce.iso";
+    let path_path = Path::new(&file_path);
+    let metadata = std::fs::metadata(path_path).unwrap();
+    let file_size = u32::try_from(metadata.len()).unwrap();
+    let chunk_count = file_size.div_ceil(16384);
+
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
     println!("Hosting...");
 
@@ -123,22 +141,7 @@ pub fn host(
                     String::from_utf8(decypted_key).expect("failed to create password string");
 
                 if let Some(password_ref) = password.as_ref() {
-                    if decrypted_password == *password_ref {
-                        println!("Correct Password");
-
-                        let response_payload = Payload {
-                            success: true,
-                            payload_count: 12,
-                            data: Vec::new(),
-                        };
-
-                        let serialized =
-                            bincode::serialize(&types::ReditPacket::Payload(response_payload))
-                                .unwrap();
-                        socket
-                            .send_to(&serialized, src)
-                            .expect("Couldn't send data");
-                    } else {
+                    if decrypted_password != *password_ref {
                         println!("Wrong password");
 
                         let response_payload = Payload {
@@ -153,7 +156,39 @@ pub fn host(
                         socket
                             .send_to(&serialized, src)
                             .expect("Couldn't send data");
+
+                        continue;
                     }
+
+                    println!("Correct Password");
+
+                    let chunk = res.payload_index;
+
+                    let data_start = chunk * 16384;
+
+                    let mut data_end = (chunk + 1) * 16384;
+                    if (chunk + 1) * 16384 > file_size {
+                        data_end = file_size
+                    }
+
+                    let data = read_file_chunk(
+                        file_path.to_string().clone(),
+                        data_start.into(),
+                        data_end.into(),
+                    )
+                    .unwrap();
+
+                    let response_payload = Payload {
+                        success: true,
+                        payload_count: chunk_count,
+                        data: data,
+                    };
+
+                    let serialized =
+                        bincode::serialize(&types::ReditPacket::Payload(response_payload)).unwrap();
+                    socket
+                        .send_to(&serialized, src)
+                        .expect("Couldn't send data");
                 } else {
                     panic!("You must provide a password");
                 }

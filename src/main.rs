@@ -1,11 +1,11 @@
 mod client;
 mod encryption;
 mod scan;
+mod scan2;
 mod server;
 mod types;
 mod utils;
 mod words;
-mod scan2;
 use argh::FromArgs;
 use rand::rngs::OsRng;
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
@@ -77,7 +77,6 @@ fn main() {
                 let index: usize = input.trim().parse().unwrap();
                 let selected = availible_hosts[index].clone();
                 if selected.0.public == false {
-                    scan2::scan();
                     // TODO: move to encryption module
                     let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
                     let host_public_key =
@@ -97,18 +96,37 @@ fn main() {
                         .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
                         .unwrap();
 
+                    let mut data = Vec::new();
+
                     let filename = "cats.txt".to_string();
 
-                    let first_payload =
-                        client::request_and_await_payload(selected.1, encrypted_password, filename);
+                    let first_payload = client::request_and_await_payload(
+                        selected.1,
+                        encrypted_password.clone(),
+                        filename.clone(),
+                        0,
+                    ); // Request the payload at index 0
 
                     if !first_payload.success {
-                        println!("Error")
-                    } else {
-                        println!("Success")
+                        println!("Failed to recieve payload info from host");
+                        return;
                     }
 
                     println!("{:#?}", first_payload);
+
+                    let payload_count = first_payload.payload_count;
+
+                    for index in 1..payload_count {
+                        let payload = client::request_and_await_payload(
+                            selected.1,
+                            encrypted_password.clone(),
+                            filename.clone(),
+                            index,
+                        );
+                        data.extend(payload.data.clone());
+
+                        println!("{:#?}", payload);
+                    }
                 } else {
                     //idk
                 }
