@@ -30,7 +30,7 @@ pub struct RequestPayload {
 	pub payload_index: u32,
 }
 
-pub const PAYLOAD_SIZE: u32 = 65536;
+pub const PAYLOAD_SIZE: u32 = 32768;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Payload {
