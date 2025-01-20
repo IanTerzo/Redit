@@ -29,9 +29,20 @@ fn resolve_payload(packet: types::ReditPacket) -> Option<types::Payload> {
     }
 }
 
-fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32, payloads_in_transit: Arc<Mutex<HashSet<u32>>>) {
+fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32, start_byte: u64, end_byte: u64, payloads_in_transit: Arc<Mutex<HashSet<u32>>>) {
 	let mut buf = [0; 524288];
 	let mut payloads_received: HashSet<u32> = Default::default();
+
+	let bar = indicatif::ProgressBar::new(end.into());
+	bar.set_style(
+		indicatif::ProgressStyle::default_bar()
+			.template("[{elapsed_precise}] {wide_bar} {binary_bytes}/{binary_total_bytes} {bytes_per_sec}/s [{eta}]")
+			.unwrap()
+			.progress_chars("#>-"),
+	);
+	bar.set_position(start_byte);
+	bar.set_length(end_byte);
+
 	loop {
 		match socket.recv_from(&mut buf) {
 			Ok((_response_size, _respondee_address)) => match bincode::deserialize::<types::ReditPacket>(&buf) {
@@ -42,6 +53,7 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 					};
 					payloads_received.insert(payload.index);
 					payloads_in_transit.lock().unwrap().remove(&payload.index);
+					bar.inc(payload.data.len().try_into().unwrap());
 					match tx.send(payload) {
 						Ok(_) => {},
 						Err(_) => {}
@@ -65,9 +77,11 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 			break;
 		}
 	}
+
+	bar.finish();
 }
 
-pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, start: u32, end: u32, mut file: fs::File) {
+pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, start: u32, end: u32, start_byte: u64, end_byte: u64, mut file: fs::File) {
 	let payloads_in_transit: Arc<Mutex<HashSet<u32>>> = Default::default();
 	let payloads_in_transit_c = payloads_in_transit.clone();
 	let (tx, rx) = mpsc::channel::<types::Payload>();
@@ -75,19 +89,10 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
 	let listener_socket = socket.try_clone().unwrap();
 
-	let bar = indicatif::ProgressBar::new(end.into());
-	bar.set_style(
-		indicatif::ProgressStyle::default_bar()
-			.template("[{elapsed_precise}] {bar:40} {pos}/{len} {msg}")
-			.unwrap()
-			.progress_chars("#>-"),
-	);
-	bar.set_position(start.into());
-
 	let server_socket: SocketAddr = SocketAddr::new(server_addr, 6969);
 
 	let listener = thread::spawn(move || {
-		pipeline_receive(listener_socket, tx, start, end, payloads_in_transit_c);
+		pipeline_receive(listener_socket, tx, start, end, start_byte, end_byte, payloads_in_transit_c);
 	});
 
 	for index in start..end {
@@ -100,8 +105,6 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 			}
 		}
 		payloads_in_transit.lock().unwrap().insert(index);
-
-		bar.inc(1);
 
 		let request_payload: types::RequestPayload = types::RequestPayload {
 			hashed_password: hashed_password.clone(),
@@ -125,8 +128,6 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	}
 
 	listener.join().unwrap();
-
-	bar.finish();
 }
 
 pub fn scan() {
@@ -185,7 +186,7 @@ pub fn scan() {
 
 		file.write_all(&first_payload.data).unwrap();
 
-		get_payloads_via_pipeline(selected.1, encrypted_password.clone(), 1, payload_count, file);
+		get_payloads_via_pipeline(selected.1, encrypted_password.clone(), 1, payload_count, 0, selected.0.files_size.try_into().unwrap(), file);
 	} else {
 		log_info("Cannot connect to a private host");
 	}

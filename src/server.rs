@@ -4,6 +4,7 @@ use crate::encryption::{
 use crate::logger::{log_error, log_info};
 use crate::scan2;
 use crate::types;
+use crate::types::PAYLOAD_SIZE;
 use crate::types::Payload;
 use crate::types::UploaderInfo;
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
@@ -88,7 +89,7 @@ pub fn start_listener(
 
     let metadata = std::fs::metadata(file_path).unwrap();
     let file_size = u32::try_from(metadata.len()).unwrap();
-    let chunk_count = file_size.div_ceil(16384);
+    let chunk_count = file_size.div_ceil(PAYLOAD_SIZE);
 
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
     log_info("Hosting...");
@@ -167,10 +168,10 @@ pub fn start_listener(
 
                     let chunk = res.payload_index;
 
-                    let data_start = chunk * 16384;
+                    let data_start = chunk * PAYLOAD_SIZE;
 
-                    let mut data_end = (chunk + 1) * 16384;
-                    if (chunk + 1) * 16384 > file_size {
+                    let mut data_end = (chunk + 1) * PAYLOAD_SIZE;
+                    if (chunk + 1) * PAYLOAD_SIZE > file_size {
                         data_end = file_size
                     }
 
