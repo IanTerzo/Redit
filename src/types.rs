@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::net::IpAddr;
 
+pub const PAYLOAD_SIZE: u32 = 16384;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RequestUploaderInfo {
     pub public_key: Option<String>,

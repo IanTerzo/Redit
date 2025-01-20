@@ -128,13 +128,16 @@ fn main() {
                         .unwrap();
 
                     file.write_all(&first_payload.data).unwrap();
-					let bar = indicatif::ProgressBar::new(payload_count.into());
-					bar.set_style(indicatif::ProgressStyle::default_bar()
-        					.template("[{elapsed_precise}] {bar:40} {pos}/{len} {msg}").unwrap()
-						.progress_chars("#>-"));
+                    let bar = indicatif::ProgressBar::new(payload_count.into());
+                    bar.set_style(
+                        indicatif::ProgressStyle::default_bar()
+                            .template("[{elapsed_precise}] {bar:40} {pos}/{len} {msg}")
+                            .unwrap()
+                            .progress_chars("#>-"),
+                    );
 
                     for index in 1..payload_count {
-						        bar.inc(1);
+                        bar.inc(1);
                         let payload = client::request_and_await_payload(
                             selected.1,
                             encrypted_password.clone(),
@@ -143,7 +146,7 @@ fn main() {
                         data.extend(payload.data.clone());
                         file.write_all(&payload.data).unwrap();
                     }
-					bar.finish();
+                    bar.finish();
                 } else {
                     //idk
                 }
