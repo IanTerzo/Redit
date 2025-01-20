@@ -14,6 +14,7 @@ pub fn request_and_await_payload(
     host_ip: IpAddr,
     encrypted_password: Vec<u8>,
     filename: String,
+    chunk: u32,
 ) -> Payload {
     let socket = UdpSocket::bind("0.0.0.0:6970")
         .map_err(|e| e.to_string())
@@ -26,7 +27,7 @@ pub fn request_and_await_payload(
         host_addr,
         encrypted_password,
         filename,
-        0,
+        chunk,
     );
 
     await_payload(socket, host_addr)
