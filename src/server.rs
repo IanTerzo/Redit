@@ -88,8 +88,8 @@ pub fn start_listener(
     }
 
     let metadata = std::fs::metadata(file_path).unwrap();
-    let file_size = u32::try_from(metadata.len()).unwrap();
-    let chunk_count = file_size.div_ceil(PAYLOAD_SIZE);
+    let file_size: u64 = metadata.len();
+    let chunk_count = file_size.div_ceil(PAYLOAD_SIZE.into());
 
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
     log_info("Hosting...");
@@ -167,12 +167,12 @@ pub fn start_listener(
 
                     log_info("Correct Password");
 
-                    let chunk = res.payload_index;
+                    let chunk: u64 = res.payload_index.into();
 
-                    let data_start = chunk * PAYLOAD_SIZE;
+                    let data_start: u64 = chunk * u64::from(PAYLOAD_SIZE);
 
-                    let mut data_end = (chunk + 1) * PAYLOAD_SIZE;
-                    if (chunk + 1) * PAYLOAD_SIZE > file_size {
+                    let mut data_end: u64 = (chunk + 1) * u64::from(PAYLOAD_SIZE);
+                    if (chunk + 1) * u64::from(PAYLOAD_SIZE) > file_size {
                         data_end = file_size
                     }
 
@@ -182,7 +182,7 @@ pub fn start_listener(
                     let response_payload = Payload {
                         success: true,
 						index: res.payload_index,
-                        payload_count: chunk_count,
+                        payload_count: chunk_count.try_into().unwrap(),
                         data: data.clone(),
                     };
 
