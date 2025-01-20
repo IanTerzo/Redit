@@ -124,6 +124,7 @@ pub fn start_listener(
 
                 let mut local_uploader_info = uploader_info.clone();
                 local_uploader_info.hashed_connection_salt = Some(salt);
+		local_uploader_info.files_size = metadata.len().try_into().unwrap();
 
                 let serialized = bincode::serialize(&local_uploader_info).unwrap();
                 socket
