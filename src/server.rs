@@ -76,11 +76,10 @@ fn read_file_chunk(file_path: String, start: u64, end: u64) -> io::Result<Vec<u8
 
 pub fn host(
     uploader_info: UploaderInfo,
-    files_path: String,
+    file_path: String,
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
-    let file_path = "debian-live-12.9.0-amd64-xfce.iso";
     let path_path = Path::new(&file_path);
     let metadata = std::fs::metadata(path_path).unwrap();
     let file_size = u32::try_from(metadata.len()).unwrap();
@@ -104,8 +103,6 @@ pub fn host(
                 continue;
             }
         };
-
-        println!("{:?}", packet);
 
         match packet {
             types::ReditPacket::RequestUploaderInfo(_) => {
@@ -181,8 +178,10 @@ pub fn host(
                     let response_payload = Payload {
                         success: true,
                         payload_count: chunk_count,
-                        data: data,
+                        data: data.clone(),
                     };
+
+                    println!("{:#?}", data);
 
                     let serialized =
                         bincode::serialize(&types::ReditPacket::Payload(response_payload)).unwrap();

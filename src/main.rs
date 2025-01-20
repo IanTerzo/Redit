@@ -15,6 +15,7 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use types::UploaderInfo;
+use std::path::Path;
 
 /// Redit file sharing
 #[derive(FromArgs)]
@@ -78,7 +79,11 @@ fn main() {
 
                 let index: usize = input.trim().parse().unwrap();
                 let selected = availible_hosts[index].clone();
-                if selected.0.public == false {
+
+                let filename = selected.0.file_name;
+                let is_public = selected.0.public;
+
+                if is_public == false {
                     // TODO: move to encryption module
                     let host_public_key_string = selected.0.public_key.unwrap(); // This should always be present if public is false
                     let host_public_key =
@@ -100,12 +105,9 @@ fn main() {
 
                     let mut data = Vec::new();
 
-                    let filename = "cats.txt".to_string();
-
                     let first_payload = client::request_and_await_payload(
                         selected.1,
                         encrypted_password.clone(),
-                        filename.clone(),
                         0,
                     ); // Request the payload at index 0
 
@@ -122,7 +124,7 @@ fn main() {
                         .write(true)
                         .create(true)
                         .append(true)
-                        .open("output.txt")
+                        .open(filename)
                         .unwrap();
 
                     file.write_all(&first_payload.data).unwrap();
@@ -131,7 +133,6 @@ fn main() {
                         let payload = client::request_and_await_payload(
                             selected.1,
                             encrypted_password.clone(),
-                            filename.clone(),
                             index,
                         );
                         data.extend(payload.data.clone());
@@ -155,6 +156,7 @@ fn main() {
                 let info = UploaderInfo {
                     public: command.no_passphrase,
                     name: command.name,
+                    file_name: Path::new(&command.path).file_stem().unwrap().to_string_lossy().to_string(),
                     files_size: 3,
                     public_key: Some(encryption::public_key_to_string(public)),
                     hashed_connection_salt: None,

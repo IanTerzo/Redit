@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
 use std::collections::HashSet;
+use std::net::IpAddr;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RequestUploaderInfo {
@@ -12,6 +12,7 @@ pub struct UploaderInfo {
     pub public: bool,
     pub name: String,
     pub files_size: i32,
+    pub file_name: String,
     pub public_key: Option<String>,
     pub hashed_connection_salt: Option<String>,
 }
@@ -19,7 +20,6 @@ pub struct UploaderInfo {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RequestPayload {
     pub hashed_password: Vec<u8>,
-    pub hashed_filename: String,
     pub payload_index: u32,
 }
 
@@ -41,16 +41,14 @@ pub struct ServerConnectionInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct RequestScanStore {
-
-}
+pub struct RequestScanStore {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ScanStore {
     pub store: HashSet<IpAddr>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq )]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[repr(u16)]
 pub enum ReditPacket {
     RequestUploaderInfo(RequestUploaderInfo) = 0,
@@ -62,4 +60,3 @@ pub enum ReditPacket {
     RequestScanStore(RequestScanStore) = 6,
     ScanStore(ScanStore) = 7,
 }
-

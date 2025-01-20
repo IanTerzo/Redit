@@ -13,7 +13,6 @@ use std::{
 pub fn request_and_await_payload(
     host_ip: IpAddr,
     encrypted_password: Vec<u8>,
-    filename: String,
     chunk: u32,
 ) -> Payload {
     let socket = UdpSocket::bind("0.0.0.0:6970")
@@ -26,7 +25,6 @@ pub fn request_and_await_payload(
         socket.try_clone().unwrap(),
         host_addr,
         encrypted_password,
-        filename,
         chunk,
     );
 
@@ -37,12 +35,10 @@ pub fn request_payload(
     socket: UdpSocket,
     uploader_addr: SocketAddr,
     hashed_password: Vec<u8>,
-    filename: String,
     payload_index: u32,
 ) {
     let request_payload = RequestPayload {
         hashed_password: hashed_password,
-        hashed_filename: filename,
         payload_index: payload_index,
     };
 
