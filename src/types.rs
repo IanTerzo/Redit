@@ -33,6 +33,7 @@ pub struct RequestPayload {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Payload {
 	pub success: bool,
+	pub index: u32,
 	pub payload_count: u32,
 	pub data: Vec<u8>,
 }

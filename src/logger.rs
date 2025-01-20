@@ -6,7 +6,7 @@ use std::sync::Mutex;
 
 lazy_static! {
     pub static ref LOGGER: Mutex<Logger> =
-        Mutex::new(Logger::new(Some("http://localhost:8080/log".to_string())));
+        Mutex::new(Logger::new(None));
 }
 
 #[allow(dead_code)]

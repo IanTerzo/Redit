@@ -15,8 +15,6 @@ use std::path::PathBuf;
 
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use std::fs;
-use std::io::Write;
 use tar::Builder;
 
 fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>> {
@@ -47,7 +45,7 @@ pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Opt
 
     let info = UploaderInfo {
         public: is_public,
-        name: name,
+        name,
         file_name: file_path.file_name().unwrap().to_string_lossy().to_string(),
         packaging: packaging_type,
         files_size: 3,
@@ -150,6 +148,7 @@ pub fn start_listener(
 
                         let response_payload = Payload {
                             success: false,
+					index: 0,
                             payload_count: 0,
                             data: Vec::new(),
                         };
@@ -180,6 +179,7 @@ pub fn start_listener(
 
                     let response_payload = Payload {
                         success: true,
+						index: res.payload_index,
                         payload_count: chunk_count,
                         data: data.clone(),
                     };
@@ -202,3 +202,4 @@ pub fn start_listener(
         }
     }
 }
+
