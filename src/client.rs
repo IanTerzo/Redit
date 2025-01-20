@@ -51,7 +51,7 @@ pub fn request_payload(
 }
 
 pub fn await_payload(socket: UdpSocket, uploader_addr: SocketAddr) -> Payload {
-    let mut buf = [0; 32768];
+    let mut buf = [0; 49152];
 
     loop {
         let (amt, src) = match socket.recv_from(&mut buf) {
