@@ -77,12 +77,15 @@ pub fn start_listener(
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
+    let mut file_path = file_path;
+
+    let tar_path = format!(
+        "./tars/{}.tar.gz",
+        file_path.file_stem().unwrap().to_string_lossy()
+    );
     if file_path.is_dir() {
-        let tar_path = format!(
-            "./tars/{}.tar.gz",
-            file_path.file_stem().unwrap().to_string_lossy()
-        );
-        tar_dir(file_path.to_string_lossy().into_owned(), tar_path);
+        tar_dir(file_path.to_string_lossy().into_owned(), tar_path.clone());
+        file_path = Path::new(&tar_path)
     }
 
     let metadata = std::fs::metadata(file_path).unwrap();
