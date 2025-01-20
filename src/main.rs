@@ -8,13 +8,10 @@ mod utils;
 mod words;
 use argh::FromArgs;
 use rand::rngs::OsRng;
-use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey};
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
-use rsa::RsaPublicKey;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
-use std::path::Path;
 use types::UploaderInfo;
 
 /// Redit file sharing
@@ -22,6 +19,7 @@ use types::UploaderInfo;
 struct Cli {
 	/// verbose output
 	#[argh(switch, short = 'V')]
+	#[allow(dead_code)]
 	verbose: bool,
 
 	/// subcommand

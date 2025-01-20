@@ -1,14 +1,6 @@
 use crate::types::{self, Payload};
-use crate::{
-	types::{ClientConnectionInfo, RequestPayload, ServerConnectionInfo, UploaderInfo},
-	utils::get_local_ip,
-};
-use std::{
-	io,
-	net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
-	thread,
-	time::Duration,
-};
+use crate::types::RequestPayload;
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 
 pub fn request_and_await_payload(
 	host_ip: IpAddr,

@@ -2,65 +2,12 @@ use crate::encryption;
 use crate::scan2;
 use crate::types;
 use crate::types::Payload;
-use crate::types::{ClientConnectionInfo, UploaderInfo};
-use flate2::write::GzEncoder;
-use flate2::Compression;
-use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
-use std::fs;
+use crate::types::UploaderInfo;
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
 use std::fs::File;
-use std::io::Write;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::net::{SocketAddr, UdpSocket};
 use std::path::Path;
-use tar::Builder;
-
-fn read_file(file_path: String) -> Vec<u8> {
-	// Specify the file path
-
-	// Read the file contents
-	let contents = fs::read(file_path).unwrap();
-
-	contents
-}
-
-fn read_dir(file_path: String, tar_path: String) -> Vec<u8> {
-	let tar_gz = File::create(tar_path.clone()).unwrap();
-
-	// Wrap it with a GzEncoder for gzip compression
-	let enc = GzEncoder::new(tar_gz, Compression::default());
-
-	let mut tar = Builder::new(enc);
-
-	tar.append_dir_all(".", file_path).unwrap();
-
-	tar.finish().unwrap();
-
-	let contents = fs::read(tar_path).unwrap();
-
-	contents
-}
-
-pub fn upload_files() {
-	//Nils tar.gz det
-
-	let path_str = "./testdir"; // Replace with your path
-
-	let path = Path::new(path_str.clone());
-
-	let mut content: Vec<u8> = vec![];
-
-	if path.is_dir() {
-		let tar_path = format!(
-			"./tars/{}.tar.gz",
-			path.file_stem().unwrap().to_string_lossy()
-		);
-		content = read_dir(path_str.to_string().clone(), tar_path);
-	} else if path.is_file() {
-		content = read_file(path_str.to_string().clone());
-	}
-
-	println!("{:#?}", content);
-}
 
 fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>> {
 	let mut file = File::open(file_path).unwrap();
@@ -187,7 +134,7 @@ pub fn host(
 					panic!("You must provide a password");
 				}
 			}
-			types::ReditPacket::ClientConnectionInfo(res) => {}
+			types::ReditPacket::ClientConnectionInfo(_res) => {}
 			unexpected => {
 				println!("Received unexpected packet {:?}", unexpected);
 			}
