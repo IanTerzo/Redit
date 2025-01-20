@@ -13,6 +13,12 @@ use std::net::{SocketAddr, UdpSocket};
 use std::path::Path;
 use std::path::PathBuf;
 
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use std::fs;
+use std::io::Write;
+use tar::Builder;
+
 fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>> {
     let mut file = File::open(file_path).unwrap();
 
@@ -52,12 +58,33 @@ pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Opt
     start_listener(info, &file_path, Some(password), private)
 }
 
+fn tar_dir(file_path: String, tar_path: String) {
+    let tar_gz = File::create(tar_path.clone()).unwrap();
+
+    // Wrap it with a GzEncoder for gzip compression
+    let enc = GzEncoder::new(tar_gz, Compression::default());
+
+    let mut tar = Builder::new(enc);
+
+    tar.append_dir_all(".", file_path).unwrap();
+
+    tar.finish().unwrap();
+}
+
 pub fn start_listener(
     uploader_info: UploaderInfo,
     file_path: &Path,
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
+    if file_path.is_dir() {
+        let tar_path = format!(
+            "./tars/{}.tar.gz",
+            file_path.file_stem().unwrap().to_string_lossy()
+        );
+        tar_dir(file_path.to_string_lossy().into_owned(), tar_path);
+    }
+
     let metadata = std::fs::metadata(file_path).unwrap();
     let file_size = u32::try_from(metadata.len()).unwrap();
     let chunk_count = file_size.div_ceil(16384);
