@@ -6,9 +6,9 @@ mod server;
 mod types;
 mod utils;
 mod words;
+mod logger;
 use argh::FromArgs;
-
-
+use logger::log_info;
 
 /// Redit file sharing
 #[derive(FromArgs)]
@@ -57,6 +57,7 @@ struct HostCommand {
 
 fn main() {
 	let cli: Cli = argh::from_env();
+	log_info("Starting Redit");
 
 	if let Some(command) = cli.command {
 		match command {

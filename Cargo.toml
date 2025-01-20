@@ -19,3 +19,6 @@ rsa = "0.9.7"
 flate2 = "1.0.35"
 tar = "0.4.43"
 indicatif = "0.17.9"
+colored = "3.0.0"
+reqwest = { version = "0.12.12", features = ["blocking", "json"] }
+lazy_static = "1.0.0"
