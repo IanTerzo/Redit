@@ -184,8 +184,6 @@ pub fn start_listener(
                         data: data.clone(),
                     };
 
-                    log_info(&format!("{:#?}", data));
-
                     let serialized =
                         bincode::serialize(&types::ReditPacket::Payload(response_payload)).unwrap();
                     socket
