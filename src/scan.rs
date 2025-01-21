@@ -114,7 +114,7 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	);
     });
 
-    for index in start..end {
+    for index in start..(end + 1) {
 	loop {
 	    let payloads_in_transit_count = payloads_in_transit.lock().unwrap().len();
 	    if payloads_in_transit_count > 10 {
