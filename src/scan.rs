@@ -81,7 +81,8 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 	}
 	let payloads_remaining: usize = usize::try_from(end).unwrap()
 	    - payloads_received.len()
-	    - usize::try_from(start).unwrap();
+	    - usize::try_from(start).unwrap()
+	    + 1;
 	if payloads_remaining == 0 {
 	    break;
 	}
