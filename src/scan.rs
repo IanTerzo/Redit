@@ -1,11 +1,9 @@
 use crate::client::request_and_await_payload;
 use crate::encryption::public_key_from_string;
-use crate::logger::{log_error, log_info};
 use crate::types::{self, PackagingType};
+use crate::types::PAYLOAD_SIZE;
 use rand::rngs::OsRng;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
-use std::collections::HashSet;
-use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
@@ -13,7 +11,14 @@ use std::process::exit;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::collections::HashSet;
+use std::sync::{Mutex, Arc};
+use std::sync::mpsc;
 use std::{io, thread};
+use std::fs;
+use std::io::prelude::*;
+use std::io::SeekFrom;
+use crate::logger::{log_error, log_info};
 
 use crate::types::UploaderInfo;
 
@@ -32,17 +37,9 @@ fn resolve_payload(packet: types::ReditPacket) -> Option<types::Payload> {
     }
 }
 
-fn pipeline_receive(
-    socket: UdpSocket,
-    tx: mpsc::Sender<types::Payload>,
-    start: u32,
-    end: u32,
-    start_byte: u64,
-    end_byte: u64,
-    payloads_in_transit: Arc<Mutex<HashSet<u32>>>,
-) {
-    let mut buf = [0; 524288];
-    let mut payloads_received: HashSet<u32> = Default::default();
+fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: u32, end: u32, start_byte: u64, end_byte: u64, payloads_in_transit: Arc<Mutex<HashSet<u32>>>) {
+	let mut buf = [0; 524288];
+	let mut payloads_received: HashSet<u32> = Default::default();
 
     let bar = indicatif::ProgressBar::new(end.into());
     bar.set_style(
@@ -93,27 +90,19 @@ fn pipeline_receive(
 	}
     }
 
-    bar.finish();
+	bar.finish();
 }
 
-pub fn get_payloads_via_pipeline(
-    server_addr: IpAddr,
-    hashed_password: Vec<u8>,
-    start: u32,
-    end: u32,
-    start_byte: u64,
-    end_byte: u64,
-    mut file: fs::File,
-) {
-    let payloads_in_transit: Arc<Mutex<HashSet<u32>>> = Default::default();
-    let payloads_in_transit_c = payloads_in_transit.clone();
-    let (tx, rx) = mpsc::channel::<types::Payload>();
+pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, start: u32, end: u32, start_byte: u64, end_byte: u64, mut file: fs::File) {
+	let payloads_in_transit: Arc<Mutex<HashSet<u32>>> = Default::default();
+	let payloads_in_transit_c = payloads_in_transit.clone();
+	let (tx, rx) = mpsc::channel::<types::Payload>();
 
     log_info(&format!("Binding to address 0.0.0.0:{}", PORT));
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", PORT)).expect("Couldn't bind to address");
     let listener_socket = socket.try_clone().unwrap();
 
-    let server_socket: SocketAddr = SocketAddr::new(server_addr, 6969);
+	let server_socket: SocketAddr = SocketAddr::new(server_addr, 6969);
 
     let listener = thread::spawn(move || {
 	pipeline_receive(
@@ -150,6 +139,19 @@ pub fn get_payloads_via_pipeline(
 	    .map_err(|e| e.to_string())
 	    .unwrap();
 
+		match rx.try_recv() {
+			Ok(payload) => {
+				match file.seek(SeekFrom::Start(u64::from(payload.index) * u64::from(PAYLOAD_SIZE))) {
+					Ok(_) => {},
+					Err(e) => file.flush().expect("Unable to flush output file due to error")
+				};
+				file.write(&payload.data).unwrap();
+			},
+			Err(_) => {
+
+			}
+		}
+	}
 	match rx.try_recv() {
 	    Ok(payload) => {
 		file.write(&payload.data).unwrap();
@@ -158,7 +160,7 @@ pub fn get_payloads_via_pipeline(
 	}
     }
 
-    listener.join().unwrap();
+	listener.join().unwrap();
 }
 
 pub fn scan() {
@@ -171,14 +173,14 @@ pub fn scan() {
     }
     log_info("Choose a host to connect to 0 - 10: ");
 
-    let mut input = String::new();
+	let mut input = String::new();
 
     io::stdin()
 	.read_line(&mut input)
 	.expect("Failed to read line");
 
-    let index: usize = input.trim().parse().unwrap();
-    let selected = availible_hosts[index].clone();
+	let index: usize = input.trim().parse().unwrap();
+	let selected = availible_hosts[index].clone();
 
     let mut filename = selected.0.file_name;
     let is_public = selected.0.public;
@@ -286,13 +288,13 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
 	.join()
 	.expect("Failed to join listener thread");
 
-    hosts
+	hosts
 }
 
 fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
-    // TODO: Ditch the buf and print the uploader infos as they come.
-    let mut buf = [0; 64 * 1024];
-    let mut hosts = Vec::new();
+	// TODO: Ditch the buf and print the uploader infos as they come.
+	let mut buf = [0; 64 * 1024];
+	let mut hosts = Vec::new();
 
     // Set a read timeout of 100 milliseconds to stop awaiting if there are no responses after 100 milliseconds
     socket
@@ -323,5 +325,6 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
 	}
     }
 
-    hosts
+	hosts
 }
+
