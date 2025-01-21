@@ -7,13 +7,10 @@ use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::process::exit;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::collections::HashSet;
-use std::sync::{Mutex, Arc};
-use std::sync::mpsc;
 use std::{io, thread};
 use std::fs;
 use std::io::prelude::*;
@@ -143,7 +140,7 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 			Ok(payload) => {
 				match file.seek(SeekFrom::Start(u64::from(payload.index) * u64::from(PAYLOAD_SIZE))) {
 					Ok(_) => {},
-					Err(e) => file.flush().expect("Unable to flush output file due to error")
+					Err(_) => file.flush().expect("Unable to flush output file due to error")
 				};
 				file.write(&payload.data).unwrap();
 			},
@@ -158,10 +155,10 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	    }
 	    Err(_) => {}
 	}
-    }
 
 	listener.join().unwrap();
 }
+
 
 pub fn scan() {
     let availible_hosts = scan_network(10000);
