@@ -81,8 +81,7 @@ fn pipeline_receive(socket: UdpSocket, tx: mpsc::Sender<types::Payload>, start: 
 	}
 	let payloads_remaining: usize = usize::try_from(end).unwrap()
 	    - payloads_received.len()
-	    - usize::try_from(start).unwrap()
-	    + 1;
+	    - usize::try_from(start).unwrap();
 	if payloads_remaining == 0 {
 	    break;
 	}
@@ -114,7 +113,7 @@ pub fn get_payloads_via_pipeline(server_addr: IpAddr, hashed_password: Vec<u8>, 
 	);
     });
 
-    for index in start..(end + 1) {
+    for index in start..end {
 	loop {
 	    let payloads_in_transit_count = payloads_in_transit.lock().unwrap().len();
 	    if payloads_in_transit_count > 10 {
