@@ -1,4 +1,4 @@
-use crate::encryption::public_key_from_string;
+use crate::encryption::{decrypt_with_passphrase, derive_key, public_key_from_string};
 use crate::logger::{log_error, log_info};
 use crate::scan::scan_network;
 use crate::types::{PackagingType, Payload, ReditPacket, RequestPayload, PAYLOAD_SIZE, PORT};
@@ -216,7 +216,7 @@ pub fn scan() {
             .encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
             .unwrap();
 
-        let first_payload = request_and_await_payload(host_ip, encrypted_password.clone(), 0); // Request the payload at index 0
+        let first_payload = request_and_await_payload(host_ip, encrypted_password.clone(), 0);
 
         if !first_payload.success {
             log_error("Failed to receive payload info from host");
@@ -227,11 +227,9 @@ pub fn scan() {
 
         let mut file = OpenOptions::new()
             .write(true)
-            .create(true) // Create the file if it doesn't exist
+            .create(true)
             .open(filename.clone())
             .unwrap();
-
-        // Optionally, write nothing to the file to ensure it's empty
 
         file.write_all(b"").unwrap();
         drop(file);
@@ -243,7 +241,11 @@ pub fn scan() {
             .open(filename)
             .unwrap();
 
-        file.write_all(&first_payload.data).unwrap();
+        let encrypted_data = &first_payload.data;
+
+        let key = derive_key(password);
+        let data = decrypt_with_passphrase(encrypted_data, &key);
+        file.write_all(&data).unwrap();
 
         get_payloads_via_pipeline(
             host_ip,

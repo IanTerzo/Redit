@@ -1,6 +1,6 @@
 use crate::encryption::{
-    decrypt_with_passphrase, derive_key, encrypt_with_passphrase, generate_private_key,
-    generate_public_key, generate_salt, public_key_to_string,
+    derive_key, encrypt_with_passphrase, generate_private_key, generate_public_key, generate_salt,
+    public_key_to_string,
 };
 use crate::logger::{log_error, log_info};
 use crate::scan2;

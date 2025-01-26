@@ -54,7 +54,9 @@ pub fn generate_salt() -> String {
 }
 
 pub fn derive_key(passphrase: &str) -> [u8; 32] {
-    let salt = SaltString::generate(&mut OsRng);
+    // Argon2 requires a salt, but in our case we can only provide a fixed salt.
+    // Even with a fixed salt argon is better than other hashing alhgorithms that dont take a salt
+    let salt = SaltString::from_b64("Salt").unwrap();
     let argon2 = Argon2::new(
         argon2::Algorithm::Argon2id,
         argon2::Version::V0x13,
@@ -69,20 +71,20 @@ pub fn derive_key(passphrase: &str) -> [u8; 32] {
 
 pub fn encrypt_with_passphrase(data: &[u8], key: &[u8; 32]) -> Vec<u8> {
     let cipher = Aes256Gcm::new(key.into());
-    let nonce = Nonce::from_slice(&[0u8; 12]); // Use a fixed nonce for simplicity
+    let nonce = Nonce::from_slice(&[0u8; 12]);
 
     cipher.encrypt(nonce, data).expect("encryption failure!")
 }
 
-pub fn decrypt_with_passphrase(encrypted_data: &[u8], key: &[u8; 32]) -> u8 {
+pub fn decrypt_with_passphrase(encrypted_data: &[u8], key: &[u8; 32]) -> Vec<u8> {
     let cipher = Aes256Gcm::new(key.into());
-    let nonce = Nonce::from_slice(&[0u8; 12]); // Use the same fixed nonce
+    let nonce = Nonce::from_slice(&[0u8; 12]);
 
     let decrypted = cipher
         .decrypt(nonce, encrypted_data)
         .expect("decryption failure!");
 
-    decrypted[0]
+    decrypted
 }
 
 mod tests {
