@@ -8,6 +8,7 @@ use crate::utils::get_local_ip;
 
 pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let local_ip = get_local_ip();
+
     let octets = match local_ip {
         IpAddr::V4(ipv4) => ipv4.octets(),
         IpAddr::V6(_) => {
@@ -22,20 +23,18 @@ pub fn scan_network(timeout: u64) -> Vec<(UploaderInfo, IpAddr)> {
     let listener_thread = thread::spawn(move || recieve_uploader_info(socket_clone, timeout));
 
     // Broadcast a packet to every IP in the subnet
-    if local_ip.is_ipv4() {
-        for c in 1..255 {
-            let ip = Ipv4Addr::new(octets[0], octets[1], octets[2], c);
-            if ip == local_ip {
-                continue;
-            }
-
-            let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
-            let packet = ReditPacket::RequestUploaderInfo(RequestUploaderInfo {
-                public_key: Some("".to_string()),
-            });
-
-            let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
+    for c in 1..255 {
+        let ip = Ipv4Addr::new(octets[0], octets[1], octets[2], c);
+        if ip == local_ip {
+            continue;
         }
+
+        let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
+        let packet = ReditPacket::RequestUploaderInfo(RequestUploaderInfo {
+            public_key: Some("".to_string()),
+        });
+
+        let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
     }
 
     // Wait for the host thread to finish and collect the results
@@ -57,17 +56,8 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
         .expect("Failed to set read timeout");
 
     loop {
-        match socket.recv_from(&mut buf) {
-            // Deserialize as UploaderInfo
-            Ok((_amt, src)) => match bincode::deserialize::<UploaderInfo>(&buf) {
-                Ok(res) => {
-                    // Add the hosts UploaderInfo and ip to hosts
-                    hosts.push((res, src.ip()));
-                }
-                Err(e) => {
-                    log_error(&format!("Failed to deserialize packet: {}", e));
-                }
-            },
+        let (_amt, src) = match socket.recv_from(&mut buf) {
+            Ok(result) => result,
             Err(ref e)
                 if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
             {
@@ -76,8 +66,20 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
             }
             Err(e) => {
                 log_error(&format!("Failed to receive packet: {}", e));
+                continue;
             }
-        }
+        };
+
+        let uploader_info = match bincode::deserialize::<UploaderInfo>(&buf) {
+            Ok(res) => res,
+            Err(e) => {
+                log_error(&format!("Failed to deserialize packet: {}", e));
+                continue;
+            }
+        };
+
+        // Add the host's UploaderInfo and IP to hosts.
+        hosts.push((uploader_info, src.ip()));
     }
 
     hosts

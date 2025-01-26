@@ -55,6 +55,18 @@ pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Opt
         hashed_connection_salt: None,
     };
 
+    let mut file_path = file_path;
+
+    let tar_path = format!(
+        "./tars/{}.tar.gz",
+        file_path.file_stem().unwrap().to_string_lossy()
+    );
+
+    if file_path.is_dir() {
+        tar_dir(file_path.to_string_lossy().into_owned(), tar_path.clone());
+        file_path = Path::new(&tar_path)
+    }
+
     start_listener(info, &file_path, Some(password), private)
 }
 
@@ -71,25 +83,123 @@ fn tar_dir(file_path: String, tar_path: String) {
     tar.finish().unwrap();
 }
 
+fn on_request_uploader_info(
+    socket: UdpSocket,
+    src: SocketAddr,
+    uploader_info: UploaderInfo,
+    salt_mappings: &mut std::collections::HashMap<SocketAddr, String>,
+    file_size: u64,
+) {
+    let salt = salt_mappings
+        .entry(src)
+        .or_insert_with(generate_salt)
+        .clone();
+
+    let mut local_uploader_info = uploader_info;
+    local_uploader_info.hashed_connection_salt = Some(salt);
+    local_uploader_info.files_size = file_size; // metadata.len();
+
+    let serialized = bincode::serialize(&local_uploader_info).unwrap();
+    socket
+        .send_to(&serialized, src)
+        .expect("Couldn't send data");
+}
+
+fn on_request_payload(
+    socket: UdpSocket,
+    src: SocketAddr,
+    private_key: RsaPrivateKey,
+    hashed_password: Vec<u8>,
+    password: Option<String>,
+    chunk_count: u64,
+    payload_index: u32,
+    file_size: u64,
+    file_path: &Path,
+) {
+    // Decrypt the hashed password
+    let decrypted_key = match private_key.decrypt(Pkcs1v15Encrypt, &hashed_password) {
+        Ok(key) => key,
+        Err(_) => {
+            log_error("Failed to decrypt password");
+            return;
+        }
+    };
+
+    let decrypted_password = match String::from_utf8(decrypted_key) {
+        Ok(password) => password,
+        Err(_) => {
+            log_error("Failed to create password string");
+            return;
+        }
+    };
+
+    // Check if a password is provided
+    let password_ref = match password.as_ref() {
+        Some(p) => p,
+        None => {
+            log_error("You must provide a password!");
+            return;
+        }
+    };
+
+    // Validate the password
+    if decrypted_password != *password_ref {
+        log_error("Wrong password");
+
+        let response_payload = Payload {
+            success: false,
+            index: 0,
+            payload_count: 0,
+            data: Vec::new(),
+        };
+
+        if let Ok(serialized) = bincode::serialize(&types::ReditPacket::Payload(response_payload)) {
+            if let Err(_) = socket.send_to(&serialized, src) {
+                log_error("Couldn't send data");
+            }
+        }
+        return;
+    }
+
+    // Calculate the data range
+    let chunk = payload_index as u64;
+    let data_start = chunk * u64::from(PAYLOAD_SIZE);
+    let data_end = (chunk + 1) * u64::from(PAYLOAD_SIZE).min(file_size);
+
+    // Read and encrypt the file chunk
+    let data = match read_file_chunk(&file_path, data_start.into(), data_end.into()) {
+        Ok(data) => data,
+        Err(_) => {
+            log_error("Failed to read file chunk");
+            return;
+        }
+    };
+
+    let key = derive_key(password_ref);
+    let encrypted_data = encrypt_with_passphrase(&data, &key);
+
+    // Create and send the response payload
+    let response_payload = Payload {
+        success: true,
+        index: payload_index,
+        payload_count: chunk_count.try_into().unwrap_or(0),
+        data: encrypted_data,
+    };
+
+    if let Ok(serialized) = bincode::serialize(&types::ReditPacket::Payload(response_payload)) {
+        if let Err(_) = socket.send_to(&serialized, src) {
+            log_error("Couldn't send data");
+        }
+    }
+}
+
 pub fn start_listener(
     uploader_info: UploaderInfo,
     file_path: &Path,
     password: Option<String>,
     private_key: RsaPrivateKey,
 ) {
-    let mut file_path = file_path;
-
-    let tar_path = format!(
-        "./tars/{}.tar.gz",
-        file_path.file_stem().unwrap().to_string_lossy()
-    );
-    if file_path.is_dir() {
-        tar_dir(file_path.to_string_lossy().into_owned(), tar_path.clone());
-        file_path = Path::new(&tar_path)
-    }
-
-    let metadata = std::fs::metadata(file_path).unwrap();
-    let file_size: u64 = metadata.len();
+    let file_size: u64 = std::fs::metadata(file_path).unwrap().len();
     let chunk_count = file_size.div_ceil(PAYLOAD_SIZE.into());
 
     let socket = UdpSocket::bind("0.0.0.0:6969").unwrap();
@@ -112,95 +222,26 @@ pub fn start_listener(
         };
 
         match packet {
-            types::ReditPacket::RequestUploaderInfo(_) => {
-                // respond with the uploader info. (includes the public key)
-                let salt = match salt_mappings.get(&src) {
-                    Some(salt) => salt.to_owned(),
-                    None => {
-                        let salt = generate_salt();
-                        salt_mappings.insert(src, salt.clone());
-                        salt
-                    }
-                };
-
-                let mut local_uploader_info = uploader_info.clone();
-                local_uploader_info.hashed_connection_salt = Some(salt);
-                local_uploader_info.files_size = metadata.len();
-
-                let serialized = bincode::serialize(&local_uploader_info).unwrap();
-                socket
-                    .send_to(&serialized, src)
-                    .expect("Couldn't send data");
-
-                continue;
-            }
-            types::ReditPacket::RequestScanStore(_) => {
-                scan2::submit_scan_store(&socket, src);
-            }
-            types::ReditPacket::RequestPayload(res) => {
-                let decypted_key = private_key
-                    .decrypt(Pkcs1v15Encrypt, &res.hashed_password)
-                    .expect("Failed to decrypt password");
-
-                let decrypted_password =
-                    String::from_utf8(decypted_key).expect("failed to create password string");
-
-                if let Some(password_ref) = password.as_ref() {
-                    if decrypted_password != *password_ref {
-                        log_error("Wrong password");
-
-                        let response_payload = Payload {
-                            success: false,
-                            index: 0,
-                            payload_count: 0,
-                            data: Vec::new(),
-                        };
-
-                        let serialized =
-                            bincode::serialize(&types::ReditPacket::Payload(response_payload))
-                                .unwrap();
-                        socket
-                            .send_to(&serialized, src)
-                            .expect("Couldn't send data");
-
-                        continue;
-                    }
-
-                    let chunk: u64 = res.payload_index.into();
-
-                    let data_start: u64 = chunk * u64::from(PAYLOAD_SIZE);
-
-                    let mut data_end: u64 = (chunk + 1) * u64::from(PAYLOAD_SIZE);
-                    if (chunk + 1) * u64::from(PAYLOAD_SIZE) > file_size {
-                        data_end = file_size
-                    }
-
-                    let data =
-                        read_file_chunk(&file_path, data_start.into(), data_end.into()).unwrap();
-
-                    let key = derive_key(password_ref);
-                    let encrypted_data = encrypt_with_passphrase(&data, &key);
-
-                    let response_payload = Payload {
-                        success: true,
-                        index: res.payload_index,
-                        payload_count: chunk_count.try_into().unwrap(),
-                        data: encrypted_data.clone(),
-                    };
-
-                    let serialized =
-                        bincode::serialize(&types::ReditPacket::Payload(response_payload)).unwrap();
-                    socket
-                        .send_to(&serialized, src)
-                        .expect("Couldn't send data");
-                } else {
-                    panic!("You must provide a password");
-                }
-            }
-            types::ReditPacket::ClientConnectionInfo(_res) => {}
-            unexpected => {
-                log_error(&format!("Received unexpected packet {:?}", unexpected));
-            }
+            types::ReditPacket::RequestUploaderInfo(_) => on_request_uploader_info(
+                socket.try_clone().unwrap(),
+                src,
+                uploader_info.clone(),
+                &mut salt_mappings,
+                file_size,
+            ),
+            types::ReditPacket::RequestScanStore(_) => scan2::submit_scan_store(&socket, src),
+            types::ReditPacket::RequestPayload(res) => on_request_payload(
+                socket.try_clone().unwrap(),
+                src,
+                private_key.clone(),
+                res.hashed_password,
+                password.clone(),
+                chunk_count,
+                res.payload_index,
+                file_size,
+                file_path,
+            ),
+            unexpected => log_error(&format!("Received unexpected packet {:?}", unexpected)),
         }
     }
 }

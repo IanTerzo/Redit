@@ -8,7 +8,7 @@ mod types;
 mod utils;
 mod words;
 use argh::FromArgs;
-use logger::log_info;
+use logger::{log_error, log_info};
 
 /// Redit file sharing
 #[derive(FromArgs)]
@@ -56,18 +56,22 @@ struct HostCommand {
 }
 
 fn main() {
-    let cli: Cli = argh::from_env();
     log_info("Starting Redit");
 
-    if let Some(command) = cli.command {
-        match command {
-            Commands::Scan(_command) => client::scan(),
-            Commands::Host(command) => server::host(
-                command.no_passphrase,
-                command.path,
-                command.name,
-                command.passphrase,
-            ),
-        }
+    let cli: Cli = argh::from_env();
+    if cli.command.is_none() {
+        log_error("No command line arguments provided! Try `redit help`");
+        return;
+    }
+
+    let command = cli.command.unwrap();
+    match command {
+        Commands::Scan(_command) => client::scan(),
+        Commands::Host(command) => server::host(
+            command.no_passphrase,
+            command.path,
+            command.name,
+            command.passphrase,
+        ),
     }
 }
