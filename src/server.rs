@@ -166,8 +166,6 @@ pub fn start_listener(
                         continue;
                     }
 
-                    log_info("Correct Password");
-
                     let chunk: u64 = res.payload_index.into();
 
                     let data_start: u64 = chunk * u64::from(PAYLOAD_SIZE);

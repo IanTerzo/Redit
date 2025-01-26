@@ -176,14 +176,19 @@ pub fn get_payloads_via_pipeline(
 }
 
 pub fn scan() {
+    log_info("Scanning for hosts...");
+
     let availible_hosts = scan_network(10000);
     for (index, host) in availible_hosts.clone().iter().enumerate() {
         log_info(&format!(
-            "{} - Filename: {}, Host: {}",
+            "{} | Filename: {}, Host: {}",
             index, host.0.file_name, host.0.name
         ));
     }
-    log_info("Choose a host to connect to 0 - 10: ");
+    log_info(&format!(
+        "Choose a host to connect to 0 - {}: ",
+        availible_hosts.len() - 1
+    ));
 
     let mut input = String::new();
 
