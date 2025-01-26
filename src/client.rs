@@ -98,6 +98,7 @@ pub fn get_payloads_via_pipeline(
     start_byte: u64,
     end_byte: u64,
     mut file: fs::File,
+    password: &str,
 ) {
     let payloads_in_transit: Arc<Mutex<HashSet<u32>>> = Default::default();
     let payloads_in_transit_c = payloads_in_transit.clone();
@@ -120,6 +121,8 @@ pub fn get_payloads_via_pipeline(
             payloads_in_transit_c,
         );
     });
+
+    let key = derive_key(password);
 
     for index in start..end {
         loop {
@@ -154,14 +157,17 @@ pub fn get_payloads_via_pipeline(
                         .flush()
                         .expect("Unable to flush output file due to error"),
                 };
-                file.write(&payload.data).unwrap();
+                let data = decrypt_with_passphrase(&payload.data, &key);
+                file.write(&data).unwrap();
             }
             Err(_) => {}
         }
     }
     match rx.try_recv() {
         Ok(payload) => {
-            file.write(&payload.data).unwrap();
+            let key = derive_key(password);
+            let data = decrypt_with_passphrase(&payload.data, &key);
+            file.write(&data).unwrap();
         }
         Err(_) => {}
     }
@@ -255,6 +261,7 @@ pub fn scan() {
             0,
             host_info.files_size.try_into().unwrap(),
             file,
+            password,
         );
     } else {
         log_info("Cannot connect to a private host");
