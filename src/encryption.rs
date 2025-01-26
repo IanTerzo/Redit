@@ -56,7 +56,7 @@ pub fn generate_salt() -> String {
 pub fn derive_key(passphrase: &str) -> [u8; 32] {
     // Argon2 requires a salt, but in our case we can only provide a fixed salt.
     // Even with a fixed salt argon is better than other hashing alhgorithms that dont take a salt
-    let salt = SaltString::from_b64("Salt").unwrap();
+    let salt = SaltString::from_b64("9d3s58g10dd75s5a5fo1jk2").unwrap(); // random pre generated string
     let argon2 = Argon2::new(
         argon2::Algorithm::Argon2id,
         argon2::Version::V0x13,
