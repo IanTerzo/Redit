@@ -19,6 +19,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use tar::Builder;
 
+// Read a chunk of a file starting from `start` ending at `end`
 fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>> {
     let mut file = File::open(file_path).unwrap();
 
@@ -32,13 +33,17 @@ fn read_file_chunk(file_path: &Path, start: u64, end: u64) -> io::Result<Vec<u8>
 }
 
 pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Option<String>) {
+    // Trim the password
     let password = password.as_deref().unwrap_or("").trim().to_string();
 
+    // Generate private and public key
     let private = generate_private_key();
     let public = generate_public_key(private.clone());
 
-    let file_path = file_path_buf.as_path();
+    // Turn the file path buffer to a Path
+    let mut file_path = file_path_buf.as_path();
 
+    // Specify packaging type as Tarred if file is a directory
     let packaging_type = if file_path.is_dir() {
         types::PackagingType::Tarred
     } else {
@@ -55,13 +60,12 @@ pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Opt
         hashed_connection_salt: None,
     };
 
-    let mut file_path = file_path;
-
     let tar_path = format!(
         "./tars/{}.tar.gz",
         file_path.file_stem().unwrap().to_string_lossy()
     );
 
+    // If it is a directory set the tar path as file path
     if file_path.is_dir() {
         tar_dir(file_path.to_string_lossy().into_owned(), tar_path.clone());
         file_path = Path::new(&tar_path)
@@ -70,16 +74,14 @@ pub fn host(is_public: bool, file_path_buf: PathBuf, name: String, password: Opt
     start_listener(info, &file_path, Some(password), private)
 }
 
+// Make a tar of the directory
+
 fn tar_dir(file_path: String, tar_path: String) {
     let tar_gz = File::create(tar_path.clone()).unwrap();
-
-    // Wrap it with a GzEncoder for gzip compression
     let enc = GzEncoder::new(tar_gz, Compression::default());
-
     let mut tar = Builder::new(enc);
 
     tar.append_dir_all(".", file_path).unwrap();
-
     tar.finish().unwrap();
 }
 
@@ -95,9 +97,10 @@ fn on_request_uploader_info(
         .or_insert_with(generate_salt)
         .clone();
 
+    // Update uploader_info with the salt
     let mut local_uploader_info = uploader_info;
     local_uploader_info.hashed_connection_salt = Some(salt);
-    local_uploader_info.files_size = file_size; // metadata.len();
+    local_uploader_info.files_size = file_size;
 
     let serialized = bincode::serialize(&local_uploader_info).unwrap();
     socket
@@ -116,7 +119,7 @@ fn on_request_payload(
     file_size: u64,
     file_path: &Path,
 ) {
-    // Decrypt the hashed password
+    // Decrypt the hashed password from the client
     let decrypted_key = match private_key.decrypt(Pkcs1v15Encrypt, &hashed_password) {
         Ok(key) => key,
         Err(_) => {
@@ -133,7 +136,7 @@ fn on_request_payload(
         }
     };
 
-    // Check if a password is provided
+    // Check if a password is provided by the host
     let password_ref = match password.as_ref() {
         Some(p) => p,
         None => {
@@ -142,10 +145,11 @@ fn on_request_payload(
         }
     };
 
-    // Validate the password
+    // Validate the clients password
     if decrypted_password != *password_ref {
         log_error("Wrong password");
 
+        // Send back success false if the password is not provided
         let response_payload = Payload {
             success: false,
             index: 0,
@@ -208,6 +212,8 @@ pub fn start_listener(
     let mut buf = [0; 1024];
 
     let mut salt_mappings: std::collections::HashMap<SocketAddr, String> = Default::default();
+
+    // Listen for incoming packets
 
     loop {
         let (amt, src) = socket.recv_from(&mut buf).unwrap();

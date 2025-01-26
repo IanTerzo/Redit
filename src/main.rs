@@ -6,7 +6,6 @@ mod scan2;
 mod server;
 mod types;
 mod utils;
-mod words;
 use argh::FromArgs;
 use logger::{log_error, log_info};
 
@@ -63,6 +62,8 @@ fn main() {
         log_error("No command line arguments provided! Try `redit help`");
         return;
     }
+
+    // Match the provided command line argument
 
     let command = cli.command.unwrap();
     match command {

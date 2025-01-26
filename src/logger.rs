@@ -4,6 +4,7 @@ use reqwest::blocking::Client;
 use serde::Serialize;
 use std::sync::Mutex;
 
+// Create the logger in a mutex to allow safe access from multiple threads
 lazy_static! {
     pub static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::new(None));
 }
@@ -26,6 +27,7 @@ pub struct Logger {
 }
 
 impl Logger {
+    // Create logger with a http_endpoint to send logs to (Optional)
     pub fn new(http_endpoint: Option<String>) -> Self {
         Logger {
             http_endpoint,
@@ -53,6 +55,7 @@ impl Logger {
         self.log_color(message, LogColor::Green);
     }
 
+    // Log with a specified color
     pub fn log_color(&self, message: &str, color: LogColor) {
         let colored_message = match color {
             LogColor::Red => message.red(),
@@ -69,6 +72,8 @@ impl Logger {
         if self.http_endpoint.is_none() {
             return;
         }
+
+        // if http_endpoint is not None, make a post request
 
         let endpoint = self.http_endpoint.as_ref().unwrap();
         let log_message = LogMessage {
