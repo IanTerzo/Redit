@@ -33,7 +33,6 @@ pub fn resolve_packet(packet: ReditPacket, address_channel: mpsc::Sender<Option<
 pub fn request_packet(socket: &UdpSocket, addr: SocketAddr) {
 	let packet = ReditPacket::RequestScanStore(RequestScanStore {});
 
-	log_info(&format!("-> {:?}", packet));
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
@@ -42,7 +41,6 @@ pub fn request_uploader_info(socket: &UdpSocket, addr: SocketAddr) {
 		public_key: Some("".to_string()),
 	});
 
-	log_info(&format!("-> {:?}", packet));
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
@@ -213,3 +211,4 @@ pub fn scan_iterative(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 	recipient.join().unwrap();
 	return scan_store_staging;
 }
+
