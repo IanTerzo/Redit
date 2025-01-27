@@ -10,13 +10,13 @@ pub struct RequestUploaderInfo {
     pub public_key: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub enum PackagingType {
     None,
     Tarred,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UploaderInfo {
     pub public: bool,
     pub name: String,

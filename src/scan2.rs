@@ -4,23 +4,29 @@ use std::thread;
 use std::sync::mpsc;
 use std::collections::HashSet;
 use std::net::{UdpSocket, IpAddr, Ipv4Addr, SocketAddr};
-use crate::types::{ReditPacket, ScanStore, RequestScanStore};
+use crate::types::{ReditPacket, ScanStore, RequestScanStore, UploaderInfo, RequestUploaderInfo};
 use std::io;
 use std::fs;
 use std::io::BufRead;
+use std::io::Write;
 use std::time::Duration;
 use crate::utils::get_local_ip;
 use crate::logger::{log_error, log_info};
 
 const PORT: u16 = 6969;
 
-pub fn resolve_packet(packet: ReditPacket) -> Option<HashSet<IpAddr>> {
+pub fn resolve_packet(packet: ReditPacket, address_channel: mpsc::Sender<Option<IpAddr>>, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>, address: SocketAddr) {
 	log_info(&format!("<- {:?}", packet));
 	match packet {
 		ReditPacket::ScanStore(scan_store) => {
-			return Some(scan_store.store);
+			for record in scan_store.store.iter() {
+				address_channel.send(Some(*record));
+			}
 		}
-		_ => { return None; }
+		ReditPacket::UploaderInfo(uploader) => {
+			uploader_channel.send(Some((uploader, address.ip())));
+		}
+		_ => { }
 	}
 }
 
@@ -31,22 +37,23 @@ pub fn request_packet(socket: &UdpSocket, addr: SocketAddr) {
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
-pub fn scan_receive(tx: mpsc::Sender<HashSet<IpAddr>>) {
+pub fn request_uploader_info(socket: &UdpSocket, addr: SocketAddr) {
+	let packet = ReditPacket::RequestUploaderInfo(RequestUploaderInfo {
+		public_key: Some("".to_string()),
+	});
+
+	log_info(&format!("-> {:?}", packet));
+	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
+}
+
+pub fn scan_receive(socket: &UdpSocket, address_channel: mpsc::Sender<Option<IpAddr>>, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>) {
 	let mut buf = [0; 1024];
-	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
 
 	loop {
 		match socket.recv_from(&mut buf) {
-			Ok((_response_size, _respondee_address)) => match bincode::deserialize::<ReditPacket>(&buf) {
+			Ok((_response_size, respondee_address)) => match bincode::deserialize::<ReditPacket>(&buf) {
 				Ok(res) => {
-					let scan_store = match resolve_packet(res) {
-						Some(scan_store) => scan_store,
-						None => continue
-					};
-					match tx.send(scan_store) {
-						Ok(_) => {},
-						Err(_) => {}
-					};
+					resolve_packet(res, address_channel.clone(), uploader_channel.clone(), respondee_address);
 				}
 				Err(e) => {
 					log_error(&format!("Failed to deserialize packet: {}", e));
@@ -64,11 +71,15 @@ pub fn scan_receive(tx: mpsc::Sender<HashSet<IpAddr>>) {
 	}
 }
 
-pub fn scan() {
+pub fn scan(uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>) {
+	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
+
 	log_info("Scanning efficiently");
-	scan_efficient(3);
+	scan_efficient(socket.try_clone().unwrap(), uploader_channel.clone(), 3);
 	log_info("Scanning iteratively");
-	scan_iterative();
+	scan_iterative(socket, uploader_channel.clone());
+
+	uploader_channel.send(None);
 }
 
 pub fn submit_scan_store(socket: &UdpSocket, addr: SocketAddr) {
@@ -99,18 +110,18 @@ pub fn submit_scan_store(socket: &UdpSocket, addr: SocketAddr) {
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
-pub fn scan_efficient(depth: u32) {
+pub fn scan_efficient(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>, depth: u32) {
 	if depth == 0 {
 		return;
 	}
 
 	/* Set up listener thread. */
-	let (tx, rx) = mpsc::channel::<HashSet<IpAddr>>();
+	let (address_channel_tx, address_channel_rx) = mpsc::channel::<Option<IpAddr>>();
+	let recipient_uploader_channel = uploader_channel.clone();
+	let recipient_socket = socket.try_clone().unwrap();
 	let recipient = thread::spawn(move || {
-		scan_receive(tx);
+		scan_receive(&recipient_socket, address_channel_tx, recipient_uploader_channel);
 	});
-
-	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
 
 	let scan_store_persistent = match fs::OpenOptions::new().create(true).read(true).open("scan_store.txt") {
 		Ok(file) => file,
@@ -133,18 +144,27 @@ pub fn scan_efficient(depth: u32) {
 	/* Allow leeway for respondees to respond. */
 	thread::sleep(Duration::from_millis(2000));
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
-	while let Ok(scan_store) = rx.recv() {
-		for record in scan_store {
-			scan_store_staging.insert(record);
+	let mut scan_store_persistent = match fs::OpenOptions::new().write(true).open("scan_store.txt") {
+		Ok(file) => file,
+		Err(_) => return
+	};
+
+	while let Ok(Some(record)) = address_channel_rx.recv() {
+		scan_store_staging.insert(record);
+		if scan_store_staging.contains(&record) {
+			continue;
 		}
+		let socket_address: SocketAddr = SocketAddr::new(record.into(), PORT);
+		request_uploader_info(&socket, socket_address);
+		writeln!(scan_store_persistent, "{}", record.to_string());
 	}
 
 	recipient.join().unwrap();
 
-	scan_efficient(depth - 1);
+	scan_efficient(socket, uploader_channel, depth - 1);
 }
 
-pub fn scan_iterative() -> HashSet<IpAddr> {
+pub fn scan_iterative(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>) -> HashSet<IpAddr> {
 	let local_ip = get_local_ip();
 	let octets = match local_ip {
 		IpAddr::V4(ipv4) => ipv4.octets(),
@@ -154,13 +174,13 @@ pub fn scan_iterative() -> HashSet<IpAddr> {
 		}
 	};
 
-	// Start the host thread
-	let socket = UdpSocket::bind(format!("0.0.0.0:{:?}", PORT)).expect("Couldn't bind to address");
-
 	/* Set up listener thread. */
-	let (tx, rx) = mpsc::channel::<HashSet<IpAddr>>();
+	let (tx, rx) = mpsc::channel::<Option<IpAddr>>();
+	let (address_channel_tx, address_channel_rx) = mpsc::channel::<Option<IpAddr>>();
+	let recipient_socket = socket.try_clone().unwrap();
+	let recipient_address_channel_tx = address_channel_tx.clone();
 	let recipient = thread::spawn(move || {
-		scan_receive(tx);
+		scan_receive(&recipient_socket, recipient_address_channel_tx, uploader_channel);
 	});
 
 	if local_ip.is_ipv4() {
@@ -183,7 +203,10 @@ pub fn scan_iterative() -> HashSet<IpAddr> {
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
 	while let Ok(scan_store) = rx.recv() {
 		for record in scan_store {
+			address_channel_tx.send(Some(record));
 			scan_store_staging.insert(record);
+			let socket_address: SocketAddr = SocketAddr::new(record.into(), PORT);
+			request_uploader_info(&socket, socket_address);
 		}
 	}
 
