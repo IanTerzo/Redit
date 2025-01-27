@@ -23,6 +23,11 @@ data is encrypted.
 Servers simply split hosted files into payloads, optionally encrypted, before
 opening a connection on the Redit port.
 
+To keep the network saturated, payloads are requested in such a manner that a
+number of payloads are requested while not all previously requested are
+received. This is called pipelining, but is not the same type of pipelining
+as HTTP pipelining.
+
 Below is a visualisation of a typical connection:
 
 ```mermaid
