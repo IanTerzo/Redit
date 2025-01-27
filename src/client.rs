@@ -1,7 +1,7 @@
 use crate::encryption::{decrypt_with_passphrase, derive_key, public_key_from_string};
 use crate::logger::{log_error, log_info};
-use crate::scan::scan_network;
-use crate::types::{PackagingType, Payload, ReditPacket, RequestPayload, PAYLOAD_SIZE, PORT};
+use crate::scan;
+use crate::types::{PackagingType, Payload, ReditPacket, RequestPayload, UploaderInfo, PAYLOAD_SIZE, PORT};
 use rand::rngs::OsRng;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use std::collections::HashSet;
@@ -178,21 +178,31 @@ pub fn get_payloads_via_pipeline(
 pub fn scan() {
     log_info("Scanning for hosts...");
 
-    let availible_hosts = scan_network(10000);
+	let (uploader_channel_tx, uploader_channel_rx) = mpsc::channel::<Option<(UploaderInfo, IpAddr)>>();
+	let recipient = thread::spawn(move || {
+		scan::scan(uploader_channel_tx);
+	});
 
-    let host_len = if availible_hosts.len() > 0 {
-        availible_hosts.len() - 1
-    } else {
-        0
-    };
+	let mut records_set: HashSet<UploaderInfo> = Default::default();
+	let mut records: Vec<(UploaderInfo, IpAddr)> = Default::default();
+	let mut index: u32 = 0;
+	while let Ok(Some((uploader, address))) = uploader_channel_rx.recv() {
+		records_set.insert(uploader.clone());
+		if records_set.contains(&uploader) {
+			continue;
+		}
+		records.push((uploader.clone(), address));
+		log_info(&format!(
+			"{} | Filename: {}, Host: {}",
+			index, uploader.file_name, uploader.name
+		));
+		index += 1;
+	}
 
-    for (index, host) in availible_hosts.clone().iter().enumerate() {
-        log_info(&format!(
-            "{} | Filename: {}, Host: {}",
-            index, host.0.file_name, host.0.name
-        ));
-    }
-    log_info(&format!("Choose a host to connect to 0 - {}: ", host_len));
+    log_info(&format!(
+        "Choose a host to connect to 0 - {}: ",
+        index - 1
+    ));
 
     let mut input = String::new();
 
@@ -201,7 +211,7 @@ pub fn scan() {
         .expect("Failed to read line");
 
     let index: usize = input.trim().parse().unwrap();
-    let selected = availible_hosts[index].clone();
+    let selected = records[index].clone();
 
     let host_info = selected.0;
     let host_ip = selected.1;
@@ -275,6 +285,8 @@ pub fn scan() {
     } else {
         log_info("Cannot connect to a private host");
     }
+
+	recipient.join().unwrap()
 }
 
 pub fn request_and_await_payload(

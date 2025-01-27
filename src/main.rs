@@ -2,7 +2,6 @@ mod client;
 mod encryption;
 mod logger;
 mod scan;
-mod scan2;
 mod server;
 mod types;
 mod utils;

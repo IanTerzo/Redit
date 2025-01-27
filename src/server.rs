@@ -3,7 +3,7 @@ use crate::encryption::{
     public_key_to_string,
 };
 use crate::logger::{log_error, log_info};
-use crate::scan2;
+use crate::scan;
 use crate::types;
 use crate::types::Payload;
 use crate::types::UploaderInfo;
@@ -235,7 +235,7 @@ pub fn start_listener(
                 &mut salt_mappings,
                 file_size,
             ),
-            types::ReditPacket::RequestScanStore(_) => scan2::submit_scan_store(&socket, src),
+            types::ReditPacket::RequestScanStore(_) => scan::submit_scan_store(&socket, src),
             types::ReditPacket::RequestPayload(res) => on_request_payload(
                 socket.try_clone().unwrap(),
                 src,
