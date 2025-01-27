@@ -213,4 +213,3 @@ pub fn scan_iterative(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 	recipient.join().unwrap();
 	return scan_store_staging;
 }
-

@@ -16,3 +16,12 @@ pub fn get_local_ip() -> IpAddr {
         }
     }
 }
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_local_ip() {
+        get_local_ip();
+    }
+}
