@@ -179,6 +179,14 @@ pub fn scan() {
     log_info("Scanning for hosts...");
 
     let availible_hosts = scan_network(10000);
+
+    let host_len =
+    if availible_hosts.len() > 0 {
+	availible_hosts.len() - 1
+    } else {
+        0
+    };
+
     for (index, host) in availible_hosts.clone().iter().enumerate() {
         log_info(&format!(
             "{} | Filename: {}, Host: {}",
@@ -187,7 +195,7 @@ pub fn scan() {
     }
     log_info(&format!(
         "Choose a host to connect to 0 - {}: ",
-        availible_hosts.len() - 1
+        host_len
     ));
 
     let mut input = String::new();
