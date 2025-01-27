@@ -1,6 +1,6 @@
 use crate::encryption::{decrypt_with_passphrase, derive_key, public_key_from_string};
 use crate::logger::{log_error, log_info};
-use crate::scan2;
+use crate::scan;
 use crate::types::{PackagingType, Payload, ReditPacket, RequestPayload, UploaderInfo, PAYLOAD_SIZE, PORT};
 use rand::rngs::OsRng;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
@@ -180,7 +180,7 @@ pub fn scan() {
 
 	let (uploader_channel_tx, uploader_channel_rx) = mpsc::channel::<Option<(UploaderInfo, IpAddr)>>();
 	let recipient = thread::spawn(move || {
-		scan2::scan(uploader_channel_tx);
+		scan::scan(uploader_channel_tx);
 	});
 
 	let mut records_set: HashSet<UploaderInfo> = Default::default();
