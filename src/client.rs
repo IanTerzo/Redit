@@ -180,9 +180,8 @@ pub fn scan() {
 
     let availible_hosts = scan_network(10000);
 
-    let host_len =
-    if availible_hosts.len() > 0 {
-	availible_hosts.len() - 1
+    let host_len = if availible_hosts.len() > 0 {
+        availible_hosts.len() - 1
     } else {
         0
     };
@@ -193,10 +192,7 @@ pub fn scan() {
             index, host.0.file_name, host.0.name
         ));
     }
-    log_info(&format!(
-        "Choose a host to connect to 0 - {}: ",
-        host_len
-    ));
+    log_info(&format!("Choose a host to connect to 0 - {}: ", host_len));
 
     let mut input = String::new();
 

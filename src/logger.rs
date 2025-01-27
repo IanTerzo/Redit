@@ -128,3 +128,22 @@ pub fn log_error(message: &str) {
 pub fn log_success(message: &str) {
     LOGGER.lock().unwrap().log_success(message);
 }
+
+#[cfg(test)]
+mod tests {
+    // If a HTTP server is used to recieve logs, it is advised that it is open
+    use super::*;
+
+    #[test]
+    fn test_logging() {
+        let test_message = "This is a test message.";
+
+        log_info(test_message);
+
+        log_warning(test_message);
+
+        log_error(test_message);
+
+        log_success(test_message);
+    }
+}

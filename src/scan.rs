@@ -52,7 +52,8 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
     let mut buf = [0; 64 * 1024];
     let mut hosts = Vec::new();
 
-    // Set a read timeout of 100 milliseconds to stop awaiting if there are no responses after 100 milliseconds
+    // Stop awaiting if there are no responses after the timeout
+    // By default it is 100 milliseconds
     socket
         .set_read_timeout(Some(Duration::from_millis(timeout)))
         .expect("Failed to set read timeout");
@@ -85,4 +86,13 @@ fn recieve_uploader_info(socket: UdpSocket, timeout: u64) -> Vec<(UploaderInfo, 
     }
 
     hosts
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scan() {
+        scan_network(100);
+    }
 }

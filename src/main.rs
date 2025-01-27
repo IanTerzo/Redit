@@ -6,6 +6,7 @@ mod scan2;
 mod server;
 mod types;
 mod utils;
+mod words;
 use argh::FromArgs;
 use logger::{log_error, log_info};
 
