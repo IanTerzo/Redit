@@ -77,6 +77,55 @@ sequenceDiagram
     end
 ```
 
+## Application overview
+```mermaid
+flowchart TD
+    cli{CLI}
+    log[HTTP logger]
+    c[Client]
+    s[Server]
+    cli-->c
+    cli-->s
+    c-->log
+    s-->log
+    subgraph scan[Scan]
+        scan_e[Efficient scanner]
+        scan_i[Iterative scanner]
+        scan_e-->scan_i
+    end
+    select[Available host display]
+    c-->select
+    select-->scan
+    scan-->select
+    enc[Credential input]
+    select-->enc
+    requestor[Requestor]
+    enc-->requestor
+    requestor-->request_0
+    request_0[Initial request]
+    meta[Metadata]
+    request_0-->meta
+    meta-->requestor
+    requestor-->request_p_r
+    request_p_r[Pipeline receiver]
+    request_p_q[[Pipeline requestor]]
+    request_p_q<--MPSC Channel-->request_p_r
+
+    listener{Network listener}
+    s-->listener
+    hr[Handle payload request]
+    rhl[Handle host list request]
+    rhl-->sendp
+    listener-->hr
+    listener-->rhl
+    hr-->read
+    read-->senc
+    senc-->sendp
+    read[Read payload from file]
+    senc[Encrypt payload]
+    sendp[Send]
+```
+
 ## Build
 ### Nix/NixOS
 1. `nix develop`
