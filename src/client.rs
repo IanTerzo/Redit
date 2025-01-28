@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{io, thread};
 
+// Resolve a Payload from a ReditPacket.
 fn resolve_payload(packet: ReditPacket) -> Option<Payload> {
 	match packet {
 		ReditPacket::Payload(payload) => {
@@ -48,6 +49,7 @@ fn pipeline_receive(
 	bar.set_position(start_byte);
 	bar.set_length(end_byte);
 
+	// Recieve payloads
 	loop {
 		match socket.recv_from(&mut buf) {
 			Ok((_response_size, _respondee_address)) => {
@@ -90,6 +92,7 @@ fn pipeline_receive(
 	bar.finish();
 }
 
+// Pipeline entrypoint
 pub fn get_payloads_via_pipeline(
 	server_addr: IpAddr,
 	hashed_password: Vec<u8>,
@@ -124,6 +127,7 @@ pub fn get_payloads_via_pipeline(
 
 	let key = derive_key(password);
 
+	// Request payloads
 	for index in start..end {
 		loop {
 			let payloads_in_transit_count = payloads_in_transit.lock().unwrap().len();
@@ -246,6 +250,8 @@ pub fn scan() {
 			.encrypt(&mut rng, Pkcs1v15Encrypt, password.as_bytes())
 			.unwrap();
 
+		// Get the payload count from the first payload
+		
 		let first_payload = request_and_await_payload(host_ip, encrypted_password.clone(), 0);
 
 		if !first_payload.success {
@@ -334,6 +340,7 @@ pub fn request_payload(
 		.unwrap();
 }
 
+// Wait for a payload
 pub fn await_payload(socket: UdpSocket, uploader_addr: SocketAddr) -> Payload {
 	let mut buf = [0; 49152];
 
@@ -357,8 +364,8 @@ pub fn await_payload(socket: UdpSocket, uploader_addr: SocketAddr) -> Payload {
 
 		match packet {
 			ReditPacket::Payload(payload) => {
+				// Make sure it's from the right person
 				if src.ip() == uploader_addr.ip() {
-					// Make sure it's from the right person
 					return payload;
 				}
 			}
