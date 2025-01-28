@@ -199,10 +199,15 @@ pub fn scan() {
 		index += 1;
 	}
 
-    log_info(&format!(
-        "Choose a host to connect to 0 - {}: ",
-        index - 1
-    ));
+	if index == 0 {
+		log_info("No hosts were found on your network");
+		return;
+	} else {
+		log_info(&format!(
+			"Choose a host to connect to 0 - {}: ",
+			index - 1
+		));
+	}
 
     let mut input = String::new();
 

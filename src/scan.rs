@@ -7,10 +7,12 @@ use std::net::{UdpSocket, IpAddr, Ipv4Addr, SocketAddr};
 use crate::types::{ReditPacket, ScanStore, RequestScanStore, UploaderInfo, RequestUploaderInfo};
 use std::io;
 use std::fs;
+use std::sync;
 use std::io::BufRead;
 use std::io::Write;
 use std::time::Duration;
 use crate::utils::get_local_ip;
+use crate::utils::{cancellation_token, CancellationToken};
 use crate::logger::{log_error, log_info};
 
 const PORT: u16 = 6969;
@@ -44,10 +46,14 @@ pub fn request_uploader_info(socket: &UdpSocket, addr: SocketAddr) {
 	let _ = socket.send_to(&bincode::serialize(&packet).unwrap(), addr);
 }
 
-pub fn scan_receive(socket: &UdpSocket, address_channel: mpsc::Sender<Option<IpAddr>>, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>) {
+pub fn scan_receive(socket: &UdpSocket, address_channel: mpsc::Sender<Option<IpAddr>>, uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>, terminate: &CancellationToken) {
 	let mut buf = [0; 1024];
 
+	socket.set_read_timeout(Some(Duration::from_millis(10)));
 	loop {
+		if (terminate.should_cancel()) {
+			return;
+		}
 		match socket.recv_from(&mut buf) {
 			Ok((_response_size, respondee_address)) => match bincode::deserialize::<ReditPacket>(&buf) {
 				Ok(res) => {
@@ -60,7 +66,7 @@ pub fn scan_receive(socket: &UdpSocket, address_channel: mpsc::Sender<Option<IpA
 			Err(ref e)
 			if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
 			{
-				break;
+				// break;
 			}
 			Err(e) => {
 				log_error(&format!("Failed to receive packet: {}", e));
@@ -76,6 +82,7 @@ pub fn scan(uploader_channel: mpsc::Sender<Option<(UploaderInfo, IpAddr)>>) {
 	scan_efficient(socket.try_clone().unwrap(), uploader_channel.clone(), 3);
 	log_info("Scanning iteratively");
 	scan_iterative(socket, uploader_channel.clone());
+	log_info("Finished scanning");
 
 	uploader_channel.send(None);
 }
@@ -117,8 +124,9 @@ pub fn scan_efficient(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 	let (address_channel_tx, address_channel_rx) = mpsc::channel::<Option<IpAddr>>();
 	let recipient_uploader_channel = uploader_channel.clone();
 	let recipient_socket = socket.try_clone().unwrap();
+	let (terminator, terminate) = cancellation_token();
 	let recipient = thread::spawn(move || {
-		scan_receive(&recipient_socket, address_channel_tx, recipient_uploader_channel);
+		scan_receive(&recipient_socket, address_channel_tx, recipient_uploader_channel, &terminate);
 	});
 
 	let scan_store_persistent = match fs::OpenOptions::new().create(true).read(true).open("scan_store.txt") {
@@ -141,6 +149,8 @@ pub fn scan_efficient(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 
 	/* Allow leeway for respondees to respond. */
 	thread::sleep(Duration::from_millis(2000));
+	terminator.cancel();
+
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
 	let mut scan_store_persistent = match fs::OpenOptions::new().write(true).open("scan_store.txt") {
 		Ok(file) => file,
@@ -177,8 +187,9 @@ pub fn scan_iterative(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 	let (address_channel_tx, address_channel_rx) = mpsc::channel::<Option<IpAddr>>();
 	let recipient_socket = socket.try_clone().unwrap();
 	let recipient_address_channel_tx = address_channel_tx.clone();
+	let (terminator, terminate) = cancellation_token();
 	let recipient = thread::spawn(move || {
-		scan_receive(&recipient_socket, recipient_address_channel_tx, uploader_channel);
+		scan_receive(&recipient_socket, recipient_address_channel_tx, uploader_channel, &terminate);
 	});
 
 	if local_ip.is_ipv4() {
@@ -192,23 +203,25 @@ pub fn scan_iterative(socket: UdpSocket, uploader_channel: mpsc::Sender<Option<(
 				let addr: SocketAddr = SocketAddr::new(ip.into(), PORT);
 
 				request_packet(&socket, addr);
+				print!("Scanning {}\r", addr.to_string());
 			}
 			thread::sleep(Duration::from_millis(100));
 		}
+		println!("");
 	}
 
 	thread::sleep(Duration::from_millis(2000));
+	terminator.cancel();
+	recipient.join().unwrap();
+
 	let mut scan_store_staging: HashSet<IpAddr> = Default::default();
-	while let Ok(scan_store) = rx.recv() {
-		for record in scan_store {
-			address_channel_tx.send(Some(record));
-			scan_store_staging.insert(record);
-			let socket_address: SocketAddr = SocketAddr::new(record.into(), PORT);
-			request_uploader_info(&socket, socket_address);
-		}
+	while let Ok(Some(record)) = rx.recv_timeout(Duration::from_millis(10)) {
+		address_channel_tx.send(Some(record));
+		scan_store_staging.insert(record);
+		let socket_address: SocketAddr = SocketAddr::new(record.into(), PORT);
+		request_uploader_info(&socket, socket_address);
 	}
 
-	recipient.join().unwrap();
 	return scan_store_staging;
 }
 
